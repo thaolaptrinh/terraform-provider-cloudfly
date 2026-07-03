@@ -26,13 +26,41 @@ type InstanceCreate struct {
 }
 
 type Instance struct {
+	ID          string    `json:"id"`
+	DisplayName string    `json:"display_name"`
+	Name        string    `json:"name"`
+	Status      string    `json:"status"`
+	Region      RegionRef `json:"region"`
+	AccessIPv4  string    `json:"accessIPv4"`
+	Created     string    `json:"created"`
+	Flavor      Flavor    `json:"flavor"`
+	Image       Image     `json:"image"`
+}
+
+// RegionRef is the nested region object returned by the instances list/detail
+// endpoints. The OpenAPI spec types `region` as a string, but the live API
+// returns this object — verified during Phase 2 acceptance testing.
+type RegionRef struct {
 	ID          string `json:"id"`
-	DisplayName string `json:"display_name"`
 	Name        string `json:"name"`
-	Status      string `json:"status"`
-	Region      string `json:"region"`
-	AccessIPv4  string `json:"accessIPv4"`
-	Created     string `json:"created"`
+	Description string `json:"description"`
+}
+
+// Flavor is the nested flavor object. RAM/VCPUs/Disk come from here because
+// the detail endpoint does not echo them as top-level scalars.
+type Flavor struct {
+	Name        string      `json:"name"`
+	MemoryMB    int         `json:"memory_mb"`
+	VCPUs       int         `json:"vcpus"`
+	RootGB      int         `json:"root_gb"`
+	FlavorGroup FlavorGroup `json:"flavor_group"`
+}
+
+// (FlavorGroup is shared with options.go; Image is local to instances.)
+
+// Image is the nested image object; the configured image name is Image.Name.
+type Image struct {
+	Name string `json:"name"`
 }
 
 type listInstancesResponse struct {

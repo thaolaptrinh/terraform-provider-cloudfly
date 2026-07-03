@@ -41,6 +41,11 @@ func TestAccInstance_import(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
+				// Step 1: create the resource so it exists in state and on the API.
+				Config: testAccInstanceConfig(),
+			},
+			{
+				// Step 2: import the existing resource (do not destroy first).
 				Config:            testAccInstanceConfig(),
 				ImportState:       true,
 				ImportStateVerify: true,

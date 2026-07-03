@@ -202,9 +202,36 @@ func instanceCreateFromModel(ctx context.Context, m InstanceResourceModel) (clie
 }
 
 // instanceToModel maps a client.Instance into an existing model (pure helper).
+// It populates every field the API returns so that Read (including import
+// refresh) reconstructs a complete state. Input fields (region, ram, etc.)
+// are derived from the nested flavor/image/region objects because the detail
+// endpoint echoes them there rather than as top-level scalars.
 func instanceToModel(inst *client.Instance, m *InstanceResourceModel) {
 	m.ID = types.StringValue(inst.ID)
 	m.Status = types.StringValue(inst.Status)
 	m.AccessIPv4 = types.StringValue(inst.AccessIPv4)
 	m.Created = types.StringValue(inst.Created)
+	if inst.Name != "" {
+		m.Name = types.StringValue(inst.Name)
+	} else if inst.DisplayName != "" {
+		m.Name = types.StringValue(inst.DisplayName)
+	}
+	if inst.Region.Name != "" {
+		m.Region = types.StringValue(inst.Region.Name)
+	}
+	if inst.Flavor.FlavorGroup.Name != "" {
+		m.FlavorType = types.StringValue(inst.Flavor.FlavorGroup.Name)
+	}
+	if inst.Image.Name != "" {
+		m.ImageName = types.StringValue(inst.Image.Name)
+	}
+	if inst.Flavor.MemoryMB > 0 {
+		m.RAM = types.Int64Value(int64(inst.Flavor.MemoryMB / 1024))
+	}
+	if inst.Flavor.VCPUs > 0 {
+		m.VCPUs = types.Int64Value(int64(inst.Flavor.VCPUs))
+	}
+	if inst.Flavor.RootGB > 0 {
+		m.Disk = types.Int64Value(int64(inst.Flavor.RootGB))
+	}
 }

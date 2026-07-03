@@ -52,7 +52,7 @@ func TestGetInstance(t *testing.T) {
 			t.Errorf("unexpected: %s %s", r.Method, r.URL.Path)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"id":"i9","display_name":"dn","name":"n","status":"ACTIVE","region":"HN-Cloud01","accessIPv4":"1.2.3.4","created":"2026-01-01T00:00:00Z"}`))
+		_, _ = w.Write([]byte(`{"id":"i9","display_name":"dn","name":"n","status":"ACTIVE","region":{"id":"HN-Cloud01","name":"HN-Cloud01","description":"HN"},"accessIPv4":"1.2.3.4","created":"2026-01-01T00:00:00Z"}`))
 	}))
 	t.Cleanup(srv.Close)
 
