@@ -1,0 +1,3733 @@
+swagger: '2.0'
+info:
+  title: CloudFly EndUser API
+  contact:
+    name: Nhinn
+    email: nhinn@cloudfly.vn
+  x-logo:
+    url: 'https://my.cloudfly.vn/assets/img/logoblue.png'
+    altText: CloudFly Logo
+  version: '1.0'
+  description: |
+    # Introduction
+
+    The CloudFly API is a set of HTTP endpoints that adhere to RESTful design principles and CRUD actions with predictable URLs. It uses standard HTTP response codes, authentication, and error messages. The API has consistent and well-formed JSON requests and responses with cursor-based pagination to simplify handling. Error messages are descriptive and easy to understand. Functions in the CloudFly portal are accessible via the API, enabling you to script complex unattended scenarios with any tool fluent in HTTP.
+
+    ## Requests
+
+    Communicate with the API by making an HTTP request at the correct endpoint. The chosen method determines the action taken.
+
+    | Method | Usage |
+    | ------ | ------ |
+    | DELETE | Use the DELETE to destroy a resource in your account. If it is not found, the operation will return a 4xx error and an appropriate message. |
+    | GET    | To retrieve information about a resource, use the GET method. The data is returned as a JSON object. GET methods are read-only and do not affect any resources. |
+    | PATCH  | Some resources support partial modification with the PATCH, which modifies specific attributes without updating the entire object representation. |
+    | POST   | Issue a POST to create a new object. Include all needed attributes in the request body encoded as JSON. |
+    | PUT    | Use the PUT method to update information about a resource. PUT will set new values on the item without regard to their current values. |
+
+    ## Response Codes
+
+    We use standard HTTP response codes to show the success or failure of requests. Response codes in the 2xx range indicate success, while codes in the 4xx range indicate an error, such as an authorization failure or a malformed request. All 4xx errors will return a JSON response object with an *error* attribute explaining the error. Codes in the 5xx range indicate a server-side problem preventing CloudFly from fulfilling your request.
+
+    | Response       | Description |
+    | -------------- | ----------- |
+    | 200 OK         | The response contains your requested information. |
+    | 201 Created    | Your request was accepted. The resource was created. |
+    | 202 Accepted   | Your request was accepted. The resource was created or updated. |
+    | 204 No Content | Your request succeeded, there is no additional information returned. |
+    | 400 Bad Request| Your request was malformed. |
+    | 401 Unauthorized | You did not supply valid authentication credentials. |
+    | 403 Forbidden  | You are not allowed to perform that action. |
+    | 404 Not Found  | No results were found for your request. |
+    | 429 Too Many Requests | Your request exceeded the API rate limit. |
+    | 500 Internal Server Error | We were unable to perform the request due to server-side problems. |
+
+host: api.cloudfly.vn/backend
+schemes:
+  - https
+basePath: /api
+consumes:
+  - application/json
+produces:
+  - application/json
+securityDefinitions:
+  Token:
+    type: apiKey
+    name: Authorization
+    in: header
+    format: Token
+security:
+  - Token: []
+tags:
+  - name: Instances
+    x-displayName: Instances
+    description: |
+      CloudFly Cloud instances can be deployed with your preferred operating system or pre-installed application in seconds. 
+
+      Standard - Meets most needs - Equipped with a 2.6GHz Intel Xeon V4 CPU and ultra-fast Enterprise SSD storage. 
+
+      Premium - For high-performance applications - Equipped with Intel Xeon Gold/Platinum Gen2 CPU and ultra-fast Enterprise NVMe storage.
+
+paths:
+  /instances:
+    get:
+      operationId: instances_list
+      description: |
+        To list all Instances in your account, send a GET request to <code>/api/instances</code>.
+
+        The response body will be a JSON object with a key of <code>results</code>. This will be set to an array containing objects each representing an Instance. These will contain the standard Instance attributes.
+
+      summary: 'List Instance'
+      parameters:
+        - name: search
+          in: query
+          description: A search term.
+          required: false
+          type: string
+        - name: limit
+          in: query
+          description: Number of results to return per page.
+          required: false
+          type: integer
+        - name: offset
+          in: query
+          description: The initial index from which to return the results.
+          required: false
+          type: integer
+      responses:
+        '200':
+          description: A JSON object with an <code>results</code> key
+          schema:
+            required:
+              - count
+              - results
+            type: object
+            properties:
+              count:
+                type: integer
+              next:
+                type: string
+                format: uri
+                x-nullable: true
+              previous:
+                type: string
+                format: uri
+                x-nullable: true
+              results:
+                type: array
+                items:
+                  $ref: '#/definitions/ListInstance'
+        '401':
+          $ref: '#/responses/UnauthorizedError'
+        '404':
+          $ref: '#/responses/NotFoundError'
+        '500':
+          $ref: '#/responses/InternalServerError'
+      tags:
+        - Instances
+    post:
+      operationId: instances_create
+      description: |
+        To create a new Instance, send a POST request to <code>/api/instances</code> setting the required attributes.
+
+        An Instance will be created using the provided information. The response body will contain a JSON object with a key called instance. The value will be an object containing the standard attributes for your new Instance. The response code, 201 Accepted, does not indicate the success or failure of the operation, just that the request has been accepted for processing.
+
+        ### Create Multiple Instances
+
+        Creating multiple Instances is very similar to creating a single Instance. Instead of sending <code>name</code> as a string, send <code>instance_name</code> as an array of strings. An Instance will be created for each name you send using the associated information. Up to ten Instances may be created this way at a time.
+      summary: 'Create Instance'
+      parameters:
+        - name: data
+          in: body
+          required: true
+          description: 'Include a JSON object in the request body with a content type of application/json.'
+          schema:
+            oneOf:
+              - $ref: '#/definitions/InstanceCreate'
+              - $ref: '#/definitions/InstanceCreateMultiple'
+          x-examples:
+            Single Droplet Create Request:
+              value:
+                name: 'example.com'
+                region: 'nyc3'
+                size: 's-1vcpu-1gb'
+                image: 'ubuntu-20-04-x64'
+            Multiple Droplet Create Request:
+              value:
+                instance_name:
+                  - 'example1.com'
+                  - 'example2.com'
+                region: 'nyc3'
+                size: 's-1vcpu-1gb'
+                image: 'ubuntu-20-04-x64'
+      responses:
+        '201':
+          description: 'Accepted'
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                default: The server has been successfully initialized. Please wait a moment
+        '401':
+          $ref: '#/responses/UnauthorizedError'
+        '404':
+          $ref: '#/responses/NotFoundError'
+        '500':
+          $ref: '#/responses/InternalServerError'
+        '400':
+          $ref: '#/responses/BadRequestError'
+      tags:
+        - Instances
+      x-examples:
+        application/json:
+          my-example-name:
+            summary: Some Example
+            value:
+              message: OK
+              type: success
+          another-example:
+            summary: Another Example
+            value:
+              message: Something went wrong
+              type: error
+      x-code-samples:
+        - lang: cURL
+          source: |
+            curl --location 'https://api.cloudfly.vn/backend/api/instances' \
+            --header 'Authorization: Token `TOKEN`' \
+            --header 'Content-Type: application/json' \
+            --data '{
+              "region": "HN-Cloud01",
+              "image_name": "CentOS-7.9",
+              "flavor_type": "Standard",
+              "ram": 1,
+              "vcpus": 1,
+              "disk": 20,
+              "enable_ipv6": false,
+              "enable_private_network": false,
+              "auto_backup": false
+            }'
+        - lang: Python
+          source: |
+            import requests
+            import json
+
+            url = "https://api.cloudfly.vn/backend/api/instances"
+
+            payload = {
+              "region": "HN-Cloud01",
+              "image_name": "CentOS-7.9",
+              "flavor_type": "Standard",
+              "ram": 1,
+              "vcpus": 1,
+              "disk": 20,
+              "enable_ipv6": False,
+              "enable_private_network": False,
+              "auto_backup": False
+            }
+            headers = {
+              'Authorization': 'Token `TOKEN`',
+              'Content-Type': 'application/json',
+            }
+            response = requests.request("POST", url, headers=headers, json=payload)
+        - lang: PHP
+          source: |
+            <?php
+            $curl = curl_init();
+            curl_setopt_array($curl, array(
+              CURLOPT_URL => 'https://api.cloudfly.vn/backend/api/instances',
+              CURLOPT_RETURNTRANSFER => true,
+              CURLOPT_ENCODING => '',
+              CURLOPT_MAXREDIRS => 10,
+              CURLOPT_TIMEOUT => 0,
+              CURLOPT_FOLLOWLOCATION => true,
+              CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+              CURLOPT_CUSTOMREQUEST => 'POST',
+              CURLOPT_POSTFIELDS =>'{
+              "region": "HN-Cloud01",
+              "image_name": "CentOS-7.9",
+              "flavor_type": "Standard",
+              "ram": 1,
+              "vcpus": 1,
+              "disk": 20,
+              "enable_ipv6": false,
+              "enable_private_network": false,
+              "auto_backup": false
+            }',
+              CURLOPT_HTTPHEADER => array(
+                'Authorization: Token `TOKEN`',
+                'Content-Type: application/json',
+              ),
+            ));
+            $response = curl_exec($curl);
+            curl_close($curl);
+        - lang: JavaScript
+          source: |
+            const resp = await fetch(
+              `https://api.cloudfly.vn/backend/api/instances`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: 'Token `TOKEN`',
+                },
+                body: JSON.stringify({
+                  region: "HN-Cloud01",
+                  image_name: "CentOS-7.9",
+                  flavor_type: "Standard",
+                  ram: 1,
+                  vcpus: 1,
+                  disk: 20,
+                  enable_ipv6: false,
+                  enable_private_network: false,
+                  auto_backup: false
+                })
+              }
+            );
+
+            const data = await resp.json();
+            console.log(data);
+        - lang: NodeJs
+          source: |
+            var request = require('request');
+            var options = {
+              'method': 'POST',
+              'url': 'https://api.cloudfly.vn/backend/api/instances',
+              'headers': {
+                'Authorization': 'Token `TOKEN`',
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                "region": "HN-Cloud01",
+                "image_name": "CentOS-7.9",
+                "flavor_type": "Standard",
+                "ram": 1,
+                "vcpus": 1,
+                "disk": 20,
+                "enable_ipv6": false,
+                "enable_private_network": false,
+                "auto_backup": false
+              })
+
+            };
+            request(options, function (error, response) {
+              if (error) throw new Error(error);
+              console.log(response.body);
+            });
+        - lang: Java
+          source: |
+            import java.net.*;
+            import java.net.http.*;
+            import java.util.*;
+
+            public class App {
+              public static void main(String[] args) throws Exception {
+                var httpClient = HttpClient.newBuilder().build();
+
+                var payload = String.join("\n"
+                  , "{"
+                  , " \"region\": \"HN-Cloud01\","
+                  , " \"image_name\": \"CentOS-7.9\","
+                  , " \"flavor_type\": \"Standard\","
+                  , " \"ram\": \"1\","
+                  , " \"vcpus\": \"1\","
+                  , " \"disk\": \"20\","
+                  , " \"enable_ipv6\": \"false\","
+                  , " \"enable_private_network\": \"false\","
+                  , " \"auto_backup\": \"false\""
+                  , "}"
+                );
+
+                var request = HttpRequest.newBuilder()
+                  .POST(HttpRequest.BodyPublishers.ofString(payload))
+                  .uri(URI.create("https://api.cloudfly.vn/backend/api/instances"))
+                  .header("Content-Type", "application/json")
+                  .header("Authorization", "Token `TOKEN`")
+                  .build();
+
+                var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+                System.out.println(response.body());
+              }
+            }
+        - lang: C#
+          source: |
+            using System;
+            using System.Net.Http;
+            using System.Threading.Tasks;
+            using System.Text;
+            using System.Text.Json;
+            using System.Net.Http.Headers;
+
+            public class Program
+            {
+              public static async Task Main()
+              {
+                System.Net.Http.HttpClient client = new();
+
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(@"Token", `TOKEN`);
+
+                string json = JsonSerializer.Serialize(new
+                {
+                  region: "HN-Cloud01",
+                  image_name: "CentOS-7.9",
+                  flavor_type: "Standard",
+                  ram: 1,
+                  vcpus: 1,
+                  disk: 20,
+                  enable_ipv6: false,
+                  enable_private_network: false,
+                  auto_backup: false
+                });
+
+                using StringContent postData = new(json, Encoding.UTF8, "application/json");
+                using HttpResponseMessage request = await client.PostAsync("https://api.cloudfly.vn/backend/api/instances", postData);
+                string response = await request.Content.ReadAsStringAsync();
+
+                Console.WriteLine(response);
+              }
+            }
+    parameters: []
+  /instances/{id}:
+    get:
+      operationId: instances_detail
+      description: To show information about an individual Instance, send a GET request to <code>/api/instances/$INSTANCE_ID</code>.
+      summary: 'Instance Detail'
+      parameters: []
+      responses:
+        '200':
+          description: The response will be a JSON object. This will be set to a JSON object that contains the standard Instance attributes
+          schema:
+            $ref: '#/definitions/InstanceDetail'
+        '401':
+          $ref: '#/responses/UnauthorizedError'
+        '404':
+          $ref: '#/responses/NotFoundError'
+        '500':
+          $ref: '#/responses/InternalServerError'
+      tags:
+        - Instances
+    delete:
+      operationId: instances_delete
+      description: |
+        To delete a Instance, send a DELETE request to <code>/api/instances/$INSTANCE_ID</code>.
+
+        A successful request will receive a 200 status code with no body in response. This indicates that the request was processed successfully.
+      summary: 'Instance Delete'
+      parameters: []
+      responses:
+        '200':
+          description: 'Accepted'
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                default: Delete instance is in progress, please wait a moment
+        '401':
+          $ref: '#/responses/UnauthorizedError'
+        '404':
+          $ref: '#/responses/NotFoundError'
+        '400':
+          description: Unable to destroy instance.
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                default: 'Unable to destroy instance $instance_name.'
+        '500':
+          $ref: '#/responses/InternalServerError'
+        '409':
+          description: Can not delete instance month, year.
+      tags:
+        - Instances
+    parameters:
+      - name: id
+        in: path
+        description: A unique value identifying this instance.
+        required: true
+        type: string
+  /instances/get_options:
+    get:
+      operationId: instances_get_options
+      description: 'Get Options'
+      summary: 'Get Options'
+      responses:
+        '200':
+          description: ''
+          schema:
+            type: object
+            properties:
+              configs:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      default: ''
+                    description:
+                      type: string
+                      default: ''
+                    prices:
+                      type: object
+                      properties:
+                        price_per_month:
+                          type: number
+                          default: 0
+                        price_per_hour:
+                          type: number
+                          default: 0
+                    region:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          default: ''
+                        description:
+                          type: string
+                          default: ''
+                    memory_mb:
+                      type: integer
+                      default: 0
+                    vcpus:
+                      type: integer
+                      default: 0
+                    root_gb:
+                      type: integer
+                      default: 0
+                    flavor_group:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          default: ''
+                        description:
+                          type: string
+                          default: ''
+                        max_ip_addon:
+                          type: integer
+                          default: 0
+        '401':
+          $ref: '#/responses/UnauthorizedError'
+        '404':
+          $ref: '#/responses/NotFoundError'
+        '500':
+          $ref: '#/responses/InternalServerError'
+      tags:
+        - Instances
+    parameters: []
+  /cloud-regions:
+    get:
+      operationId: instances_cloud_regions
+      description: 'List all available regions.'
+      summary: 'List Regions'
+      responses:
+        '200':
+          description: A JSON object with an <code>results</code> key
+          schema:
+            required:
+              - count
+              - results
+            type: object
+            properties:
+              count:
+                type: integer
+              next:
+                type: string
+                format: uri
+                x-nullable: true
+              previous:
+                type: string
+                format: uri
+                x-nullable: true
+              results:
+                type: array
+                items:
+                  $ref: '#/definitions/CloudRegion'
+        '401':
+          $ref: '#/responses/UnauthorizedError'
+        '404':
+          $ref: '#/responses/NotFoundError'
+        '500':
+          $ref: '#/responses/InternalServerError'
+      tags:
+        - Instances
+    parameters: []
+  /instances/get_price:
+    post:
+      operationId: instances_get_price
+      description: 'Get Price'
+      summary: 'Get Price'
+      parameters:
+        - name: data
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/GetPrice'
+      responses:
+        '200':
+          description: A JSON object
+          schema:
+            type: object
+            properties:
+              price_per_month:
+                type: number
+              price_per_hour:
+                type: number
+        '401':
+          description: Authentication failed due to invalid credentials.
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                default: 'Invalid Token.'
+        '404':
+          description: The resource was not found.
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                default: 'The resource you requested could not be found.'
+        '500':
+          description: An internal server error occurred.
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                default: 'Internal Server Error.'
+      tags:
+        - Instances
+    parameters: []
+  /instances/{id}/rebuild:
+    post:
+      operationId: instances_rebuild
+      description: 'Rebuild Server (Warning: The servers internal data will be permanently deleted when the server is Rebuilt.)'
+      summary: 'Rebuild Server'
+      parameters:
+        - name: data
+          in: body
+          required: true
+          schema:
+            type: object
+            properties:
+              image_id:
+                title: Image ID
+                type: string
+                description: The Application image to use when rebuild this instance.
+      responses:
+        '200':
+          description: Rebuilding server.
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                default: 'Rebuilding server.'
+        '401':
+          $ref: '#/responses/UnauthorizedError'
+        '400':
+          $ref: '#/responses/BadRequestError'
+        '404':
+          $ref: '#/responses/NotFoundError'
+        '500':
+          $ref: '#/responses/InternalServerError'
+      tags:
+        - Instances
+    parameters:
+      - name: id
+        in: path
+        description: A unique value identifying this instance.
+        required: true
+        type: string
+  /instances/ssh-keys:
+    get:
+      operationId: instances_ssh_keys
+      description: 'Get information about an SSH Key.'
+      summary: 'List SSH Keys'
+      responses:
+        '200':
+          description: A JSON object with an <code>results</code> key
+          schema:
+            required:
+              - count
+              - results
+            type: object
+            properties:
+              count:
+                type: integer
+              next:
+                type: string
+                format: uri
+                x-nullable: true
+              previous:
+                type: string
+                format: uri
+                x-nullable: true
+              results:
+                type: array
+                items:
+                  $ref: '#/definitions/PublicKey'
+        '401':
+          description: Authentication failed due to invalid credentials.
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                default: 'Invalid Token.'
+        '404':
+          description: The resource was not found.
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                default: 'The resource you requested could not be found.'
+        '500':
+          description: An internal server error occurred.
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                default: 'Internal Server Error.'
+      tags:
+        - Instances
+    parameters: []
+  /instances/{id}/change-password:
+    post:
+      operationId: instances_change_password
+      description: 'Change password of an instance'
+      summary: 'Change password'
+      parameters:
+        - name: data
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/InstanceChangePassword'
+      responses:
+        '200':
+          description: Password changed successfully
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                default: Change instance password successfully
+        '401':
+          $ref: '#/responses/UnauthorizedError'
+        '400':
+          $ref: '#/responses/BadRequestError'
+        '404':
+          $ref: '#/responses/NotFoundError'
+        '500':
+          $ref: '#/responses/InternalServerError'
+      tags:
+        - Instances
+    parameters:
+      - name: id
+        in: path
+        description: A unique value identifying this instance.
+        required: true
+        type: string
+
+  /instances/{id}/start:
+    get:
+      operationId: instances_start
+      description: 'Start instance, change instances status from STOPPED to ACTIVE'
+      summary: 'Start instance'
+      parameters: []
+      responses:
+        '200':
+          description: Instance started successfully
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                default: Instance started'
+        '401':
+          $ref: '#/responses/UnauthorizedError'
+        '400':
+          description: Bad request
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                default: Unable to start instance $instance_name.
+        '404':
+          $ref: '#/responses/NotFoundError'
+        '500':
+          $ref: '#/responses/InternalServerError'
+      tags:
+        - Instances
+    parameters:
+      - name: id
+        in: path
+        description: A unique value identifying this instance.
+        required: true
+        type: string
+  /instances/{id}/stop:
+    get:
+      operationId: instances_stop
+      description: 'Shutdown instance, change instances status from ACTIVE to STOPPED'
+      summary: 'Shutdown instance'
+      parameters: []
+      responses:
+        '200':
+          description: Instance stopped successfully
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                default: Instance is stopping
+        '401':
+          $ref: '#/responses/UnauthorizedError'
+        '400':
+          $ref: '#/responses/BadRequestError'
+        '404':
+          $ref: '#/responses/NotFoundError'
+        '500':
+          $ref: '#/responses/InternalServerError'
+      tags:
+        - Instances
+    parameters:
+      - name: id
+        in: path
+        description: A unique value identifying this instance.
+        required: true
+        type: string
+  /instances/{id}/backup-server:
+    get:
+      operationId: instances_get_backup_schedules
+      description: 'This is the list of backup schedules for the instance.'
+      summary: 'Backup Schedules'
+      parameters: []
+      responses:
+        '200':
+          description: List of backup schedules
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/BackupSchedule'
+        '401':
+          $ref: '#/responses/UnauthorizedError'
+        '404':
+          $ref: '#/responses/NotFoundError'
+        '500':
+          $ref: '#/responses/InternalServerError'
+      tags:
+        - Instances
+    parameters:
+      - name: id
+        in: path
+        description: A unique value identifying this instance.
+        required: true
+        type: string
+  #  /instances/{id}/backups:
+  #    get:
+  #      operationId: instances_get_backups
+  #      description: 'Backups'
+  #      summary: 'Backups'
+  #      parameters: []
+  #      responses:
+  #        '200':
+  #          description: ''
+  #          schema:
+  #            type: array
+  #            items:
+  #              $ref: '#/definitions/Image'
+  #      tags:
+  #        - Instances
+  #    parameters:
+  #      - name: id
+  #        in: path
+  #        description: A unique value identifying this instance.
+  #        required: true
+  #        type: string
+  #  /instances/{id}/get_backup_price:
+  #    get:
+  #      operationId: instances_get_backup_price
+  #      description: 'Backup Price'
+  #      summary: 'Backup Price'
+  #      parameters: []
+  #      responses:
+  #        '200':
+  #          description: ''
+  #          schema:
+  #            type: object
+  #      tags:
+  #        - Instances
+  #    parameters:
+  #      - name: id
+  #        in: path
+  #        description: A unique value identifying this instance.
+  #        required: true
+  #        type: string
+  #      - name: backup_type
+  #        in: query
+  #        description: Backup type
+  #        required: true
+  #        type: string
+  #        default: weekly
+  #  /instances/{id}/create_backup_schedule:
+  #    post:
+  #      operationId: instances_create_backup_schedule
+  #      description: 'Create Backup Schedule'
+  #      summary: 'Create Backup Schedule'
+  #      parameters:
+  #        - name: data
+  #          in: body
+  #          required: true
+  #          schema:
+  #            $ref: '#/definitions/InstanceBackupCreate'
+  #      responses:
+  #        '200':
+  #          description: ''
+  #          schema:
+  #            type: object
+  #            properties:
+  #              invoice_id:
+  #                type: integer
+  #      tags:
+  #        - Instances
+  #    parameters:
+  #      - name: id
+  #        in: path
+  #        description: A unique value identifying this instance.
+  #        required: true
+  #        type: string
+  #
+  #  /instances/backup-servers/{id}:
+  #    delete:
+  #      operationId: instances_backup_servers
+  #      description: 'Cancel Backup Server'
+  #      summary: 'Cancel Backup Server'
+  #      parameters: []
+  #      responses:
+  #        '204':
+  #          description: ''
+  #      tags:
+  #        - Instances
+  #    parameters:
+  #      - name: id
+  #        in: path
+  #        description: A unique value identifying this backup server.
+  #        required: true
+  #        type: string
+  #  /instances/{id}/interfaces:
+  #    get:
+  #      operationId: instances_attached_interfaces
+  #      description: 'Interfaces'
+  #      summary: 'List Interfaces'
+  #      parameters: []
+  #      responses:
+  #        '200':
+  #          description: ''
+  #          schema:
+  #            type: object
+  #            properties:
+  #              data:
+  #                title: Data
+  #                type: array
+  #                default: []
+  #      tags:
+  #        - Instances
+  #    parameters:
+  #      - name: id
+  #        in: path
+  #        description: A unique value identifying this instance.
+  #        required: true
+  #        type: string
+  #  /instances/{id}/get_ipv4_price:
+  #    get:
+  #      operationId: instances_get_ipv4_price
+  #      description: 'Ipv4 Price'
+  #      summary: 'Ipv4 Price'
+  #      parameters: []
+  #      responses:
+  #        '200':
+  #          description: ''
+  #          schema:
+  #            type: object
+  #            properties:
+  #              quantity:
+  #                title: Quantity
+  #                type: string
+  #              unit_price:
+  #                title: Unit price
+  #                type: integer
+  #              upgrade_cost:
+  #                title: Upgrade cost
+  #                type: integer
+  #              base_price:
+  #                title: Base price
+  #                type: integer
+  #              cycle_remaining_seconds:
+  #                title: Cycle remaining seconds
+  #                type: integer
+  #              cycle_used_seconds:
+  #                title: Cycle used seconds
+  #                type: integer
+  #      tags:
+  #        - Instances
+  #    parameters:
+  #      - name: id
+  #        in: path
+  #        description: A unique value identifying this instance.
+  #        required: true
+  #        type: string
+  #      - name: quantity
+  #        in: query
+  #        description: Quantity
+  #        required: false
+  #        default: 1
+  #        type: integer
+  #  /instances/{id}/automatically-add-ips:
+  #    post:
+  #      operationId: instances_automatically_add_ips
+  #      description: 'API view that automatically add IPs to Instance'
+  #      summary: 'Add new IP to instance'
+  #      parameters:
+  #        - name: data
+  #          in: body
+  #          required: true
+  #          schema:
+  #            type: object
+  #            properties:
+  #              quantity:
+  #                title: Quantity
+  #                type: integer
+  #      responses:
+  #        '200':
+  #          description: ''
+  #          schema:
+  #            type: object
+  #      tags:
+  #        - Instances
+  #    parameters:
+  #      - name: id
+  #        in: path
+  #        description: A unique value identifying this instance.
+  #        required: true
+  #        type: string
+  /instances/{id}/update-reverse-dns:
+    post:
+      operationId: instances_update_reverse_dns
+      description: 'Create a reverse IPv4 entry for an Instance. The ip and reverse attributes are required.'
+      summary: 'Update reverse dns'
+      parameters:
+        - name: data
+          in: body
+          required: true
+          description: 'Include a JSON object in the request body with a content type of application/json.'
+          schema:
+            $ref: '#/definitions/ReverseRecordSetUpdate'
+      responses:
+        '200':
+          description: Reverse DNS entry created successfully.
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                default: Successfully updated reverse dns
+        '401':
+          $ref: '#/responses/UnauthorizedError'
+        '404':
+          $ref: '#/responses/NotFoundError'
+        '500':
+          $ref: '#/responses/InternalServerError'
+      tags:
+        - Instances
+    parameters:
+      - name: id
+        in: path
+        description: A unique value identifying this instance.
+        required: true
+        type: string
+  /instances/{id}/attach-interface:
+    post:
+      operationId: instances_attach_interface
+      description: 'API attaches an interface (network) to an instance by end-user'
+      summary: 'Attaches interface (network)'
+      parameters:
+        - name: data
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/AttachInterface'
+      responses:
+        '200':
+          description: Successfully attach network to instance
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                default: Successfully attach network to instance
+        '401':
+          $ref: '#/responses/UnauthorizedError'
+        '404':
+          $ref: '#/responses/NotFoundError'
+        '500':
+          $ref: '#/responses/InternalServerError'
+      tags:
+        - Instances
+    parameters:
+      - name: id
+        in: path
+        description: A unique value identifying this instance.
+        required: true
+        type: string
+  /instances/{id}/detach-interface:
+    post:
+      operationId: instances_detach_interface
+      description: API detaches an interface (network) from an instance by end-user
+      summary: 'Detach interface from instance'
+      parameters:
+        - name: data
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/DetachInterface'
+      responses:
+        '200':
+          description: Successfully detached interface from instance
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                default: Successfully detached interface from instance
+        '401':
+          $ref: '#/responses/UnauthorizedError'
+        '404':
+          $ref: '#/responses/NotFoundError'
+        '500':
+          $ref: '#/responses/InternalServerError'
+      tags:
+        - Instances
+    parameters:
+      - name: id
+        in: path
+        description: A unique value identifying this instance.
+        required: true
+        type: string
+  /instances/{id}/enable-ipv6-range:
+    post:
+      operationId: instances_enable_ipv6_range
+      description: 'Enable IPv6 Range'
+      summary: 'Enable IPv6 Range'
+      parameters:
+        - name: data
+          in: body
+          required: false
+          schema:
+            type: object
+      responses:
+        '200':
+          description: ''
+          schema:
+            type: object
+        '401':
+          $ref: '#/responses/UnauthorizedError'
+        '404':
+          $ref: '#/responses/NotFoundError'
+        '500':
+          $ref: '#/responses/InternalServerError'
+      tags:
+        - Instances
+    parameters:
+      - name: id
+        in: path
+        description: A unique value identifying this instance.
+        required: true
+        type: string
+  /instances/{id}/enable-ipv6:
+    post:
+      operationId: instances_enable_ipv6
+      description: 'Enables IPv6 support for the service.'
+      summary: 'Enable IPv6'
+      parameters:
+        - name: data
+          in: body
+          required: false
+          schema:
+            type: object
+      responses:
+        '201':
+          description: ''
+          schema:
+            type: object
+        '401':
+          $ref: '#/responses/UnauthorizedError'
+        '404':
+          $ref: '#/responses/NotFoundError'
+        '500':
+          $ref: '#/responses/InternalServerError'
+      tags:
+        - Instances
+    parameters:
+      - name: id
+        in: path
+        description: A unique value identifying this instance.
+        required: true
+        type: string
+  #  /instances/{id}/get_change_ipv4_price:
+  #    get:
+  #      operationId: instances_get_change_ipv4_price
+  #      description: 'Get Change Ipv4 Price'
+  #      summary: 'Get Change Ipv4 Price'
+  #      parameters: []
+  #      responses:
+  #        '200':
+  #          description: ''
+  #          schema:
+  #            type: object
+  #            properties:
+  #              cycle_remaining_seconds:
+  #                title: Cycle remaining seconds
+  #                type: integer
+  #              upgrade_cost:
+  #                title: Upgrade cost
+  #                type: integer
+  #      tags:
+  #        - Instances
+  #    parameters:
+  #      - name: id
+  #        in: path
+  #        description: A unique value identifying this instance.
+  #        required: true
+  #        type: string
+  #  /instances/{id}/change-ipv4:
+  #    post:
+  #      operationId: instances_change_ipv4
+  #      description: 'Change IPv4'
+  #      summary: 'Change IPv4'
+  #      parameters:
+  #        - name: data
+  #          in: body
+  #          required: false
+  #          schema:
+  #            type: object
+  #      responses:
+  #        '200':
+  #          description: ''
+  #          schema:
+  #            type: object
+  #            properties:
+  #              messages:
+  #                title: Messages
+  #                type: string
+  #      tags:
+  #        - Instances
+  #    parameters:
+  #      - name: id
+  #        in: path
+  #        description: A unique value identifying this instance.
+  #        required: true
+  #        type: string
+  /instances/{id}/snapshots:
+    get:
+      operationId: instances_get_snapshots
+      description: 'List Snapshot of Instance'
+      summary: 'List Snapshot of Instance'
+      parameters: []
+      responses:
+        '200':
+          description: Successfully retrieved list of snapshots.
+          schema:
+            type: array
+            default: []
+        '401':
+          $ref: '#/responses/UnauthorizedError'
+        '404':
+          $ref: '#/responses/NotFoundError'
+        '500':
+          $ref: '#/responses/InternalServerError'
+      tags:
+        - Instances
+    parameters:
+      - name: id
+        in: path
+        description: A unique value identifying this instance.
+        required: true
+        type: string
+  #  /instances/{id}/get_snapshot_price_per_cycle:
+  #    get:
+  #      operationId: instances_get_snapshot_price_per_cycle
+  #      description: 'Get Snapshot Price'
+  #      summary: 'Get Snapshot Price'
+  #      parameters: []
+  #      responses:
+  #        '200':
+  #          description: ''
+  #          schema:
+  #            type: integer
+  #      tags:
+  #        - Instances
+  #    parameters:
+  #      - name: id
+  #        in: path
+  #        description: A unique value identifying this instance.
+  #        required: true
+  #        type: string
+  /instances/{id}/create_snapshot:
+    post:
+      operationId: instances_create_snapshot
+      description: 'Create Snapshot'
+      summary: 'Create Snapshot'
+      parameters:
+        - name: data
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/InstanceSnapshotCreate'
+      responses:
+        '200':
+          description: Create snapshot succeeded
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                default: Create snapshot is in progress, please wait a moment
+        '401':
+          $ref: '#/responses/UnauthorizedError'
+        '404':
+          $ref: '#/responses/NotFoundError'
+        '500':
+          $ref: '#/responses/InternalServerError'
+      tags:
+        - Instances
+    parameters:
+      - name: id
+        in: path
+        description: A unique value identifying this instance.
+        required: true
+        type: string
+  /instances/{id}/get_usage_history:
+    get:
+      operationId: instances_get_usage_history
+      description: 'Usage History'
+      summary: 'Usage History'
+      parameters: []
+      responses:
+        '200':
+          description: Successfully retrieved usage history.
+          schema:
+            type: array
+            default: []
+        '401':
+          $ref: '#/responses/UnauthorizedError'
+        '404':
+          $ref: '#/responses/NotFoundError'
+        '500':
+          $ref: '#/responses/InternalServerError'
+      tags:
+        - Instances
+    parameters:
+      - name: id
+        in: path
+        description: A unique value identifying this instance.
+        required: true
+        type: string
+  /instances/{id}/reboot:
+    post:
+      operationId: instances_reboot_server
+      description: 'The system will send a restart command to your server. Your server will operate normally after the restart process is completed.'
+      summary: 'Reboot instance'
+      parameters:
+        - name: data
+          in: body
+          required: true
+          schema:
+            type: object
+            properties:
+              reboot_type:
+                title: Reboot type
+                type: string
+                default: soft
+                description: This option should only be used when the server is down
+      responses:
+        '200':
+          description: Reboot server is in progress, please wait a moment
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                default: reboot server is in progress, please wait a moment
+        '401':
+          $ref: '#/responses/UnauthorizedError'
+        '404':
+          $ref: '#/responses/NotFoundError'
+        '500':
+          $ref: '#/responses/InternalServerError'
+        '400':
+          $ref: '#/responses/BadRequestError'
+      tags:
+        - Instances
+    parameters:
+      - name: id
+        in: path
+        description: A unique value identifying this instance.
+        required: true
+        type: string
+  #  /instances/{id}/hard-reboot:
+  #    post:
+  #      operationId: instances_hard_reboot_server
+  #      description: 'Hard Reboot'
+  #      summary: 'Hard Reboot'
+  #      parameters:
+  #        - name: data
+  #          in: body
+  #          required: false
+  #          schema:
+  #            type: object
+  #      responses:
+  #        '200':
+  #          description: ''
+  #          schema:
+  #            type: object
+  #      tags:
+  #        - Instances
+  #    parameters:
+  #      - name: id
+  #        in: path
+  #        description: A unique value identifying this instance.
+  #        required: true
+  #        type: string
+
+  # /instances/{id}/measures/:
+  #   get:
+  #     operationId: instances_measures
+  #     description: 'Measures'
+  #     summary: 'Measures'
+  #     parameters: []
+  #     responses:
+  #       '200':
+  #         description: ''
+  #         schema:
+  #           $ref: '#/definitions/Instance'
+  #     tags:
+  #       - Instances
+  #   parameters:
+  #     - name: id
+  #       in: path
+  #       description: A unique value identifying this instance.
+  #       required: true
+  #       type: string
+  /instances/{id}/metrics:
+    get:
+      operationId: instances_metrics
+      description: 'Metrics'
+      summary: 'Metrics'
+      parameters: []
+      responses:
+        '200':
+          description: Successfully retrieved instance metrics.
+          schema:
+            type: object
+            properties:
+              data:
+                title: Data
+                type: array
+        '401':
+          $ref: '#/responses/UnauthorizedError'
+        '404':
+          $ref: '#/responses/NotFoundError'
+        '500':
+          $ref: '#/responses/InternalServerError'
+        '400':
+          $ref: '#/responses/BadRequestError'
+      tags:
+        - Instances
+    parameters:
+      - name: id
+        in: path
+        description: A unique value identifying this instance.
+        required: true
+        type: string
+      - name: metrcic_type
+        in: query
+        required: true
+        type: enum
+        enum:
+          - vcpu
+          - memory
+          - disk
+          - interface
+          - packet
+      - name: start_time
+        in: query
+        required: true
+        type: enum
+        enum:
+          - 1h
+          - 2h
+          - 1d
+          - 7d
+          - 30d
+
+  /instances/{id}/rename:
+    post:
+      operationId: instances_rename
+      description: 'API view that renames instance'
+      summary: 'Rename instance'
+      parameters:
+        - name: data
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/InstanceRename'
+      responses:
+        '200':
+          description: Instance renamed successfully
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                default: The server has been rename successfully initialized. Please wait a moment
+        '401':
+          $ref: '#/responses/UnauthorizedError'
+        '400':
+          description: Bad Request
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                default: There are some problem in process
+        '500':
+          $ref: '#/responses/InternalServerError'
+      tags:
+        - Instances
+    parameters:
+      - name: id
+        in: path
+        description: A unique value identifying this instance.
+        required: true
+        type: string
+  /instances/{id}/add-security-group:
+    post:
+      operationId: instances_add_security_group
+      description: 'API view that adds security group to server'
+      summary: 'Add security group to instance'
+      parameters:
+        - name: data
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/AddSecurityGroup'
+      responses:
+        '200':
+          description: Add security group succeeded
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                default: Successfully added security group to server
+        '401':
+          $ref: '#/responses/UnauthorizedError'
+        '404':
+          $ref: '#/responses/NotFoundError'
+        '500':
+          $ref: '#/responses/InternalServerError'
+        '400':
+          $ref: '#/responses/BadRequestError'
+      tags:
+        - Instances
+    parameters:
+      - name: id
+        in: path
+        description: A unique value identifying this instance.
+        required: true
+        type: string
+  /instances/{id}/security-groups:
+    get:
+      operationId: instances_get_server_security_groups
+      description: 'API view that fetches security groups associated with a server (info from Openstack)'
+      summary: 'List Security group'
+      parameters: []
+      responses:
+        '200':
+          description: Successfully retrieved security groups.
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                default: []
+        '401':
+          $ref: '#/responses/UnauthorizedError'
+        '404':
+          $ref: '#/responses/NotFoundError'
+        '500':
+          $ref: '#/responses/InternalServerError'
+        '400':
+          $ref: '#/responses/BadRequestError'
+      tags:
+        - Instances
+    parameters:
+      - name: id
+        in: path
+        description: A unique value identifying this instance.
+        required: true
+        type: string
+  /instances/{id}/remove-security-group:
+    post:
+      operationId: instances_remove_security_group
+      description: 'API view that removes security group from server'
+      summary: 'Remove security group'
+      parameters:
+        - name: data
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/RemoveSecurityGroup'
+      responses:
+        '200':
+          description: Successfully removed security group from server.
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                default: Successfully removed security group from server
+        '401':
+          $ref: '#/responses/UnauthorizedError'
+        '404':
+          $ref: '#/responses/NotFoundError'
+        '500':
+          $ref: '#/responses/InternalServerError'
+        '400':
+          $ref: '#/responses/BadRequestError'
+      tags:
+        - Instances
+    parameters:
+      - name: id
+        in: path
+        description: A unique value identifying this instance.
+        required: true
+        type: string
+  # /instances/{id}/security-group-rules/:
+  #   get:
+  #     operationId: instances_get_server_security_group_rules
+  #     description: 'API view that fetches security group rules associated with a server (info from Openstack)'
+  #     summary: 'Fetch server security group rules'
+  #     parameters: []
+  #     responses:
+  #       '200':
+  #         description: ''
+  #         schema:
+  #           $ref: '#/definitions/Instance'
+  #     tags:
+  #       - Instances
+  #   parameters:
+  #     - name: id
+  #       in: path
+  #       description: A unique value identifying this instance.
+  #       required: true
+  #       type: string
+  # /instances/{id}/show-password/:
+  #   get:
+  #     operationId: instances_show_password
+  #     description: 'API view that returns root password of instance'
+  #     summary: 'Show root password'
+  #     parameters: []
+  #     responses:
+  #       '200':
+  #         description: ''
+  #         schema:
+  #           $ref: '#/definitions/Instance'
+  #     tags:
+  #       - Instances
+  #   parameters:
+  #     - name: id
+  #       in: path
+  #       description: A unique value identifying this instance.
+  #       required: true
+  #       type: string
+
+  /instances/{id}/sync-data:
+    get:
+      operationId: instances_sync_os
+      description: 'API view that refreshes instance data from OpenStack'
+      summary: 'Refresh data'
+      parameters: []
+      responses:
+        '200':
+          description: Successfully refreshed instance
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                default: Successfully sync from Server
+        '401':
+          $ref: '#/responses/UnauthorizedError'
+        '404':
+          $ref: '#/responses/NotFoundError'
+        '500':
+          $ref: '#/responses/InternalServerError'
+        '400':
+          $ref: '#/responses/BadRequestError'
+      tags:
+        - Instances
+    parameters:
+      - name: id
+        in: path
+        description: A unique value identifying this instance.
+        required: true
+        type: string
+  # /instances/{id}/rescue:
+  #   post:
+  #     operationId: instances_rescue_instance
+  #     description: 'API view that rescues instance'
+  #     summary: 'Rescue instance'
+  #     parameters:
+  #       - name: data
+  #         in: body
+  #         required: true
+  #         schema:
+  #           $ref: '#/definitions/InstanceRescue'
+  #     responses:
+  #       '200':
+  #         description: ''
+  #         schema:
+  #           type: object
+  #     tags:
+  #       - Instances
+  #   parameters:
+  #     - name: id
+  #       in: path
+  #       description: A unique value identifying this instance.
+  #       required: true
+  #       type: string
+  # /instances/{id}/unrescue:
+  #   get:
+  #     operationId: instances_unrescue_instance
+  #     description: 'API view that unrescues instance'
+  #     summary: 'Unrescue instance'
+  #     parameters: []
+  #     responses:
+  #       '200':
+  #         description: ''
+  #         schema:
+  #           type: object
+  #     tags:
+  #       - Instances
+  #   parameters:
+  #     - name: id
+  #       in: path
+  #       description: A unique value identifying this instance.
+  #       required: true
+  #       type: string
+  #  /instances/{id}/reset-state:
+  #    get:
+  #      operationId: instances_reset_server_state
+  #      description: 'Reset State'
+  #      summary: 'Reset State'
+  #      parameters: []
+  #      responses:
+  #        '200':
+  #          description: ''
+  #      tags:
+  #        - Instances
+  #    parameters:
+  #      - name: id
+  #        in: path
+  #        description: A unique value identifying this instance.
+  #        required: true
+  #        type: string
+  /instances/csv-summary:
+    get:
+      operationId: instances_get_csv_summary
+      description: 'Export CSV'
+      summary: 'Export CSV'
+      responses:
+        '200':
+          description: CSV file generated successfully.
+          schema:
+            type: object
+            properties:
+              csv_path:
+                type: string
+                format: uri
+        '401':
+          $ref: '#/responses/UnauthorizedError'
+        '404':
+          $ref: '#/responses/NotFoundError'
+        '500':
+          $ref: '#/responses/InternalServerError'
+        '400':
+          $ref: '#/responses/BadRequestError'
+      tags:
+        - Instances
+    parameters: []
+
+definitions:
+  APIResponse:
+    type: object
+    properties:
+      success:
+        title: Success
+        type: boolean
+        default: false
+      messages:
+        type: array
+        items:
+          type: string
+          minLength: 1
+      error_code:
+        title: Error code
+        type: integer
+        default: 0
+      data:
+        title: Data
+        type: object
+        additionalProperties:
+          type: string
+        default: {}
+  BillingProduct:
+    title: Product
+    required:
+      - name
+      - code
+      - product_type
+      - price_model
+      - group
+    type: object
+    properties:
+      id:
+        title: Random id
+        type: integer
+        maximum: 9223372036854775807
+        minimum: -9223372036854775808
+      name:
+        title: Name
+        type: string
+        maxLength: 255
+        minLength: 1
+      description:
+        title: Description
+        type: string
+        maxLength: 1024
+        x-nullable: true
+      code:
+        title: Code
+        description: Human readable id
+        type: string
+        maxLength: 255
+        minLength: 1
+      product_type:
+        title: Product type
+        type: string
+        maxLength: 16
+        minLength: 1
+      status:
+        title: Status
+        type: string
+        enum:
+          - public
+          - private
+          - retired
+      price_model:
+        title: Price model
+        type: string
+        enum:
+          - free
+          - fixed_and_dynamic
+          - dynamic_or_fixed
+      auto_setup:
+        title: Auto setup
+        type: string
+        enum:
+          - disabled
+          - on_order
+          - first_payment
+          - manual
+      taxable:
+        title: Taxable
+        description: Add level 1 and 2 tax rates if applicable
+        type: boolean
+      requires_domain:
+        title: Requires domain
+        type: boolean
+      hide_services:
+        title: Hide services
+        type: boolean
+      billing_type:
+        title: Billing type
+        type: string
+        maxLength: 64
+        x-nullable: true
+      group:
+        title: Group
+        type: integer
+      module:
+        title: Module
+        type: integer
+        x-nullable: true
+      upgrades:
+        type: array
+        items:
+          type: integer
+        uniqueItems: true
+      configurable_options:
+        type: array
+        items:
+          type: integer
+        readOnly: true
+        uniqueItems: true
+  ProductBrief:
+    title: Product
+    required:
+      - name
+      - product_type
+    type: object
+    properties:
+      id:
+        title: Random id
+        type: integer
+        maximum: 9223372036854775807
+        minimum: -9223372036854775808
+      name:
+        title: Name
+        type: string
+        maxLength: 255
+        minLength: 1
+      description:
+        title: Description
+        type: string
+        maxLength: 1024
+        x-nullable: true
+      billing_type:
+        title: Billing type
+        type: string
+        maxLength: 64
+        x-nullable: true
+      product_type:
+        title: Product type
+        type: string
+        maxLength: 16
+        minLength: 1
+  ProductCycleBrief:
+    title: Cycle
+    required:
+      - cycle
+    type: object
+    properties:
+      id:
+        title: ID
+        type: integer
+        readOnly: true
+      currency:
+        title: Currency
+        type: string
+        x-nullable: true
+      cycle:
+        title: Cycle
+        type: string
+        maxLength: 8
+        minLength: 1
+      cycle_multiplier:
+        title: Cycle multiplier
+        type: integer
+        maximum: 2147483647
+        minimum: -2147483648
+      fixed_price:
+        title: Fixed price
+        type: string
+        format: decimal
+      setup_fee:
+        title: Setup fee
+        type: string
+        format: decimal
+      display_name:
+        title: Display name
+        type: string
+        readOnly: true
+  CancellationRequestBrief:
+    title: Cancellation request
+    required:
+      - reason
+      - cancellation_type
+    type: object
+    properties:
+      id:
+        title: Random id
+        type: integer
+        maximum: 9223372036854775807
+        minimum: -9223372036854775808
+      reason:
+        title: Reason
+        type: string
+        maxLength: 2048
+        minLength: 1
+      cancellation_type:
+        title: Cancellation type
+        type: string
+        enum:
+          - immediate
+          - cycleend
+  ServiceBrief:
+    title: Service
+    type: object
+    properties:
+      id:
+        title: Random id
+        type: integer
+        readOnly: true
+      display_name:
+        title: Display name
+        type: string
+        readOnly: true
+        minLength: 1
+      status:
+        title: Status
+        type: string
+        enum:
+          - pending
+          - active
+          - suspended
+          - terminated
+          - canceled
+          - fraud
+          - archived
+        readOnly: true
+      suspend_type:
+        title: Suspend type
+        type: string
+        readOnly: true
+        minLength: 1
+      created_at:
+        title: Created at
+        type: string
+        format: date-time
+        readOnly: true
+      activated_at:
+        title: Activated at
+        type: string
+        format: date-time
+        readOnly: true
+      suspended_at:
+        title: Suspended at
+        type: string
+        format: date-time
+        readOnly: true
+      updated_at:
+        title: Updated at
+        type: string
+        format: date-time
+        readOnly: true
+      terminated_at:
+        title: Terminated at
+        type: string
+        format: date-time
+        readOnly: true
+      auto_terminate_date:
+        title: Auto terminate date
+        description: Auto terminate on this date
+        type: string
+        format: date-time
+        readOnly: true
+      auto_terminate_reason:
+        title: Auto terminate reason
+        type: string
+        readOnly: true
+        minLength: 1
+      next_expiration_date:
+        title: Next expiration date
+        description: Used for services that expire outside, like domains. Next due
+          and invoice due are usually set ahead of this date
+        type: string
+        format: date-time
+        readOnly: true
+      next_invoice_date:
+        title: Next invoice date
+        type: string
+        readOnly: true
+      product:
+        $ref: '#/definitions/ProductBrief'
+      cycle:
+        $ref: '#/definitions/ProductCycleBrief'
+      override_price:
+        title: Override price
+        type: string
+        format: decimal
+        readOnly: true
+      cancellation_request:
+        $ref: '#/definitions/CancellationRequestBrief'
+      status_display:
+        title: Status display
+        type: string
+        readOnly: true
+      domain_name:
+        title: Domain name
+        type: string
+        readOnly: true
+        minLength: 1
+      pricing_plan:
+        title: Pricing plan
+        type: string
+        readOnly: true
+      current_service_cycle_end:
+        title: Current service cycle end
+        type: string
+        readOnly: true
+      paid_until:
+        title: Paid until
+        type: string
+        format: date-time
+        readOnly: true
+      last_service_cycle_state:
+        title: Last service cycle state
+        type: string
+        readOnly: true
+      client:
+        title: Client
+        type: integer
+        readOnly: true
+      auto_renew:
+        title: Auto renew
+        type: string
+        readOnly: true
+      service_id:
+        title: Service id
+        type: string
+        readOnly: true
+      staff:
+        title: Staff
+        type: integer
+        readOnly: true
+  ProductCycle:
+    title: Cycle
+    required:
+      - cycle
+      - product
+    type: object
+    properties:
+      id:
+        title: ID
+        type: integer
+        readOnly: true
+      currency:
+        title: Currency
+        type: string
+        default: VND
+        x-nullable: true
+      cycle:
+        title: Cycle
+        type: string
+        maxLength: 8
+        minLength: 1
+      cycle_multiplier:
+        title: Cycle multiplier
+        type: integer
+        default: 1
+        maximum: 2147483647
+        minimum: -2147483648
+      fixed_price:
+        title: Fixed price
+        type: string
+        format: decimal
+      setup_fee:
+        title: Setup fee
+        type: string
+        format: decimal
+      display_name:
+        title: Display name
+        type: string
+        readOnly: true
+      product:
+        $ref: '#/definitions/BillingProduct'
+  ProductServiceBrief:
+    title: Service
+    required:
+      - status
+    type: object
+    properties:
+      id:
+        title: Random id
+        type: integer
+        maximum: 9223372036854775807
+        minimum: -9223372036854775808
+      display_name:
+        title: Display name
+        type: string
+        maxLength: 128
+        minLength: 1
+      product:
+        $ref: '#/definitions/BillingProduct'
+      created_at:
+        title: Created at
+        type: string
+        format: date-time
+        readOnly: true
+      billing_type:
+        title: Billing type
+        type: string
+        readOnly: true
+      paid_until:
+        title: Paid until
+        type: string
+        format: date-time
+        x-nullable: true
+      override_suspend_until:
+        title: Override suspend until
+        type: string
+        format: date-time
+        x-nullable: true
+      override_price:
+        title: Override price
+        type: string
+        format: decimal
+        x-nullable: true
+      cycle:
+        $ref: '#/definitions/ProductCycleBrief'
+      cancellation_request:
+        $ref: '#/definitions/CancellationRequestBrief'
+      auto_renew:
+        title: Auto renew
+        type: string
+        readOnly: true
+      service_id:
+        title: Service id
+        type: string
+        readOnly: true
+      status:
+        title: Status
+        type: string
+        enum:
+          - pending
+          - active
+          - suspended
+          - terminated
+          - canceled
+          - fraud
+          - archived
+  CreateToken:
+    required:
+      - username
+      - password
+    properties:
+      username:
+        title: Username
+        type: string
+      password:
+        title: Password
+        type: string
+  ListInstance:
+    required:
+      - id
+      - service
+    type: object
+    properties:
+      id:
+        title: Id
+        type: string
+        maxLength: 36
+        minLength: 1
+      service:
+        $ref: '#/definitions/ProductServiceBrief'
+      region:
+        title: Region
+        type: string
+        readOnly: true
+      accessIPv4:
+        title: AccessIPv4
+        type: string
+        minLength: 1
+        x-nullable: true
+      flavor:
+        title: Flavor
+        type: string
+        readOnly: true
+      image:
+        title: Image
+        type: string
+        readOnly: true
+      backup_server:
+        title: Backup server
+        type: string
+        readOnly: true
+      display_name:
+        title: Display name
+        type: string
+        readOnly: true
+      status:
+        title: Status
+        type: string
+        maxLength: 255
+        minLength: 1
+      task_state:
+        title: Task state
+        type: string
+        maxLength: 255
+        x-nullable: true
+      created:
+        title: Created
+        type: string
+        format: date-time
+        x-nullable: true
+      booted_from_iso:
+        title: Booted from iso
+        type: boolean
+      stopped_by_cloudfly:
+        title: Stopped by cloudfly
+        type: boolean
+  InstanceCreate:
+    title: Single Instance Request
+    required:
+      - flavor_type
+      - region
+      - image_name
+      - ram
+      - disk
+      - vcpus
+    type: object
+    properties:
+      flavor_type:
+        title: Flavor Type
+        type: string
+        enum:
+          - Standard
+          - Premium
+        description: The Flavor to use when deploying this instance.
+      name:
+        title: Name
+        type: string
+        description: The human-readable string you wish to use when displaying the Instance name. The name set during creation will also determine the hostname for the Instance in its internal configuration.
+      ram:
+        title: RAM (GB)
+        type: integer
+        minimum: 1
+        description: The Ram to use when deploying this instance.
+      disk:
+        title: Root Disk (GB)
+        type: integer
+        minimum: 20
+        description: The Disk to use when deploying this instance.
+      vcpus:
+        title: Number of CPU
+        type: integer
+        minimum: 1
+        description: The CPU to use when deploying this instance.
+      region:
+        title: Region
+        type: string
+        description: The Region where the Instance is located.
+        enum:
+          - CLOUD-HN02
+          - HN-Cloud01
+      image_name:
+        title: Image name
+        type: string
+        minLength: 1
+        description: The Application image to use when deploying this instance.
+      auto_backup:
+        title: Enable Auto backup server
+        description: A boolean indicating whether automated backups should be enabled for the instance.
+        type: bool
+        default: false
+      ssh_key_ids:
+        description: An array containing the IDs or fingerprints of the SSH keys that you wish to embed in the Instances root account upon creation. You must add the keys to your team before they can be embedded on a instance.
+        type: array
+        default: []
+        items:
+          type: integer
+      enable_private_network:
+        description: Enable private network
+        type: boolean
+        default: false
+      enable_ipv6:
+        description: A boolean indicating whether to enable IPv6 on the instance.
+        type: boolean
+        default: false
+      cycle:
+        title: Cycle
+        type: string
+        enum:
+          - month
+          - year
+        description: The billing cycle for this instance. If not provided, the service will be created by the hour.
+      cycle_multiplier:
+        title: Cycle multiplier
+        type: integer
+        maximum: 10
+        minimum: 1
+        description: The multiplier for the billing cycle. If not provided, the service will be created by the hour.
+      paid_with_client_credit:
+        title: Paid with client credit
+        type: boolean
+        description: Use client credit to pay for this instance. (When creating a service from month, year, it is required to set paid_with_client_credit=true; otherwise, the system will add it to the [shopping cart](https://api.cloudfly.vn/cart/basket).)
+        default: false
+
+  InstanceCreateMultiple:
+    title: Multiple Instance Request
+    required:
+      - flavor_type
+      - region
+      - image_name
+      - ram
+      - disk
+      - vcpus
+    type: object
+    properties:
+      flavor_type:
+        title: Flavor Type
+        type: string
+        enum:
+          - Standard
+          - Premium
+        description: The Flavor to use when deploying this instance.
+      instance_name:
+        title: Name
+        type: array
+        default: []
+        items:
+          type: string
+        description: An array of human human-readable strings you wish to use when displaying the Instance name. Each name set during creation will also determine the hostname for the Instance in its internal configuration.
+      quantity:
+        title: Quantity
+        type: integer
+        minimum: 1
+        description: The number of instances to create.
+      ram:
+        title: RAM (GB)
+        type: integer
+        minimum: 1
+        description: The Ram to use when deploying this instance.
+      disk:
+        title: Root Disk (GB)
+        type: integer
+        minimum: 20
+        description: The Disk to use when deploying this instance.
+      vcpus:
+        title: Number of CPU
+        type: integer
+        minimum: 1
+        description: The CPU to use when deploying this instance.
+      region:
+        title: Region
+        type: string
+        description: The Region where the Instance is located.
+        enum:
+          - CLOUD-HN02
+          - HN-Cloud01
+      image_name:
+        title: Image name
+        type: string
+        minLength: 1
+        description: The Application image to use when deploying this instance.
+      auto_backup:
+        title: Enable Auto backup server
+        description: A boolean indicating whether automated backups should be enabled for the instance.
+        type: bool
+        default: false
+      ssh_key_ids:
+        description: The SSH Key id to install on this instance.
+        type: array
+        default: []
+        items:
+          type: integer
+      enable_private_network:
+        description: Enable private network
+        type: boolean
+        default: false
+      enable_ipv6:
+        description: Enable IPv6.
+        type: boolean
+        default: false
+      cycle:
+        title: Cycle
+        type: string
+        enum:
+          - month
+          - year
+        description: The billing cycle for this instance. If not provided, the service will be created by the hour.
+      cycle_multiplier:
+        title: Cycle multiplier
+        type: integer
+        maximum: 10
+        minimum: 1
+        description: The multiplier for the billing cycle. If not provided, the service will be created by the hour.
+      paid_with_client_credit:
+        title: Paid with client credit
+        type: boolean
+        description: Use client credit to pay for this instance. (When creating a service from month, year, it is required to set paid_with_client_credit=true; otherwise, the system will add it to the [shopping cart](https://api.cloudfly.vn/cart/basket).)
+        default: false
+  SmallImage:
+    title: Image
+    required:
+      - min_disk
+      - min_ram
+    type: object
+    properties:
+      name:
+        title: Name
+        type: string
+        maxLength: 255
+        x-nullable: true
+      min_disk:
+        title: Min disk
+        type: integer
+        maximum: 2147483647
+        minimum: -2147483648
+      min_ram:
+        title: Min ram
+        type: integer
+        maximum: 2147483647
+        minimum: -2147483648
+      thumbnail:
+        title: Thumbnail
+        type: string
+        readOnly: true
+      os_type:
+        title: Os type
+        type: string
+        maxLength: 20
+        x-nullable: true
+  Instance:
+    required:
+      - id
+      - flavor
+      - image
+    type: object
+    properties:
+      id:
+        title: Id
+        type: string
+        maxLength: 36
+        minLength: 1
+      flavor:
+        $ref: '#/definitions/SmallFlavor'
+      image:
+        $ref: '#/definitions/SmallImage'
+      ports:
+        title: Ports
+        type: string
+        readOnly: true
+      username:
+        title: Username
+        type: string
+        readOnly: true
+      display_name:
+        title: Display name
+        type: string
+        readOnly: true
+      backup_server:
+        title: Backup server
+        type: string
+        readOnly: true
+      region:
+        title: Region
+        type: string
+        maxLength: 128
+        x-nullable: true
+      user_id:
+        title: User id
+        type: string
+        maxLength: 255
+        x-nullable: true
+      name:
+        title: Name
+        type: string
+        maxLength: 255
+        x-nullable: true
+      description:
+        title: Description
+        type: string
+        maxLength: 255
+        x-nullable: true
+      addresses:
+        title: Addresses
+        type: string
+        x-nullable: true
+      accessIPv4:
+        title: AccessIPv4
+        type: string
+        minLength: 1
+        x-nullable: true
+      accessIPv6:
+        title: AccessIPv6
+        type: string
+        minLength: 1
+        x-nullable: true
+      hostId:
+        title: HostId
+        type: string
+        maxLength: 255
+        x-nullable: true
+      host_name:
+        title: Host name
+        type: string
+        maxLength: 255
+        x-nullable: true
+      instance_name:
+        title: Instance name
+        type: string
+        maxLength: 255
+        x-nullable: true
+      key_name:
+        title: Key name
+        type: string
+        maxLength: 255
+        x-nullable: true
+      config_drive:
+        title: Config drive
+        type: boolean
+      availability_zone:
+        title: Availability zone
+        type: string
+        maxLength: 255
+        x-nullable: true
+      auto_disk_config:
+        title: Auto disk config
+        type: boolean
+      power_state:
+        title: Power state
+        type: integer
+        maximum: 32767
+        minimum: -32768
+      task_state:
+        title: Task state
+        type: string
+        maxLength: 255
+        x-nullable: true
+      vm_state:
+        title: Vm state
+        type: string
+        maxLength: 255
+        x-nullable: true
+      created:
+        title: Created
+        type: string
+        format: date-time
+        x-nullable: true
+      launched_at:
+        title: Launched at
+        type: string
+        format: date-time
+        x-nullable: true
+      updated:
+        title: Updated
+        type: string
+        format: date-time
+        readOnly: true
+      terminated_at:
+        title: Terminated at
+        type: string
+        format: date-time
+        x-nullable: true
+      security_groups:
+        title: Security groups
+        type: string
+        x-nullable: true
+      status:
+        title: Status
+        type: string
+        maxLength: 255
+        minLength: 1
+      host_status:
+        title: Host status
+        type: string
+        maxLength: 255
+        x-nullable: true
+      fault:
+        title: Fault
+        type: string
+        x-nullable: true
+      extra:
+        title: Extra
+        type: string
+        x-nullable: true
+      locked:
+        title: Locked
+        type: boolean
+      sync_version:
+        title: Sync version
+        type: integer
+        maximum: 9223372036854775807
+        minimum: -9223372036854775808
+      booted_from_iso:
+        title: Booted from iso
+        type: boolean
+      max_current_month_traffic:
+        title: Max current month traffic
+        type: integer
+        maximum: 9223372036854775807
+        minimum: -9223372036854775808
+      max_current_month_traffic_mb:
+        title: Max current month traffic mb
+        type: integer
+        maximum: 9223372036854775807
+        minimum: -9223372036854775808
+      current_month_incoming:
+        title: Current month incoming
+        type: integer
+        maximum: 9223372036854775807
+        minimum: -9223372036854775808
+      current_month_incoming_mb:
+        title: Current month incoming mb
+        type: integer
+        maximum: 9223372036854775807
+        minimum: -9223372036854775808
+      current_month_outgoing:
+        title: Current month outgoing
+        type: integer
+        maximum: 9223372036854775807
+        minimum: -9223372036854775808
+      current_month_outgoing_mb:
+        title: Current month outgoing mb
+        type: integer
+        maximum: 9223372036854775807
+        minimum: -9223372036854775808
+      stopped_by_cloudfly:
+        title: Stopped by cloudfly
+        type: boolean
+      server_data:
+        title: Server data
+        type: string
+        x-nullable: true
+      source_notes:
+        title: Source notes
+        type: string
+        x-nullable: true
+      project:
+        title: Project
+        type: string
+        x-nullable: true
+      staff:
+        title: Staff
+        type: integer
+        x-nullable: true
+      service:
+        title: Service
+        type: integer
+        x-nullable: true
+  GetPrice:
+    required:
+      - flavor_type
+      - image_name
+      - ram
+      - disk
+      - vcpus
+      - region
+    type: object
+    properties:
+      flavor_type:
+        title: Flavor type
+        type: string
+        enum:
+          - Standard
+          - Premium
+      ram:
+        title: RAM (GB)
+        type: integer
+        minimum: 1
+      disk:
+        title: Root Disk (GB)
+        type: integer
+        minimum: 20
+      vcpus:
+        title: Number of CPU
+        type: integer
+        minimum: 1
+      region:
+        title: Region
+        type: string
+        enum:
+          - CLOUD-HN02
+          - HN-Cloud01
+      image_name:
+        title: Image name
+        type: string
+        minLength: 1
+        default: CentOS-7.9
+  PublicKey:
+    required:
+      - name
+      - public_key
+    type: object
+    properties:
+      id:
+        title: Random id
+        type: integer
+        maximum: 9223372036854775807
+        minimum: -9223372036854775808
+      name:
+        title: Name
+        type: string
+        maxLength: 32
+        minLength: 1
+      public_key:
+        title: Public key
+        type: string
+        maxLength: 17408
+        minLength: 1
+      created_at:
+        title: Created at
+        type: string
+        format: date-time
+        readOnly: true
+      fingerprint:
+        title: Fingerprint
+        type: string
+        maxLength: 128
+        x-nullable: true
+  ExtraSmallFlavor:
+    title: Flavor
+    required:
+      - name
+      - memory_mb
+    type: object
+    properties:
+      id:
+        title: Random id
+        type: integer
+        maximum: 9223372036854775807
+        minimum: -9223372036854775808
+      name:
+        title: Name
+        type: string
+        maxLength: 255
+        minLength: 1
+      flavor_group:
+        title: Flavor group
+        type: string
+        readOnly: true
+      available_for:
+        title: Available for
+        description: 'Set this flavor available for: ALL, LINUX, WINDOWS, .... Upper
+          case and separated by comma'
+        type: string
+        maxLength: 100
+        minLength: 1
+      description:
+        title: Description
+        type: string
+        maxLength: 1024
+      memory_mb:
+        title: Memory mb
+        type: integer
+        maximum: 2147483647
+        minimum: -2147483648
+      vcpus:
+        title: Vcpus
+        type: integer
+        maximum: 2147483647
+        minimum: -2147483648
+      swap:
+        title: Swap
+        type: integer
+        maximum: 2147483647
+        minimum: -2147483648
+      root_gb:
+        title: Root gb
+        type: integer
+        maximum: 2147483647
+        minimum: -2147483648
+        x-nullable: true
+      bandwidth:
+        title: Bandwidth
+        type: string
+        maxLength: 255
+        x-nullable: true
+  InstanceDetail:
+    required:
+      - flavor
+      - image
+      - service
+    type: object
+    properties:
+      id:
+        title: Id
+        type: string
+        readOnly: true
+        minLength: 1
+      flavor:
+        $ref: '#/definitions/ExtraSmallFlavor'
+      image:
+        $ref: '#/definitions/SmallImage'
+      service:
+        $ref: '#/definitions/ProductServiceBrief'
+      display_name:
+        title: Display name
+        type: string
+        readOnly: true
+      region:
+        title: Region
+        type: string
+        readOnly: true
+      name:
+        title: Name
+        type: string
+        readOnly: true
+        minLength: 1
+      accessIPv4:
+        title: AccessIPv4
+        type: string
+        readOnly: true
+        minLength: 1
+      host_name:
+        title: Host name
+        type: string
+        maxLength: 255
+        x-nullable: true
+      created:
+        title: Created
+        type: string
+        format: date-time
+        readOnly: true
+      booted_from_iso:
+        title: Booted from iso
+        type: boolean
+        readOnly: true
+      status:
+        title: Status
+        type: string
+        readOnly: true
+        minLength: 1
+      task_state:
+        title: Task state
+        type: string
+        maxLength: 255
+        x-nullable: true
+      backup_server:
+        title: Backup server
+        type: string
+        readOnly: true
+      username:
+        title: Username
+        type: string
+        readOnly: true
+      server_info:
+        title: Server info
+        type: string
+        readOnly: true
+      current_month_traffic:
+        title: Current month traffic
+        type: string
+        readOnly: true
+      current_month_traffic_mb:
+        title: Current month traffic mb
+        type: string
+        readOnly: true
+      remain_max_ip_addon:
+        title: Remain max ip addon
+        type: string
+        readOnly: true
+      stopped_by_cloudfly:
+        title: Stopped by cloudfly
+        type: boolean
+        readOnly: true
+  AddSecurityGroup:
+    required:
+      - security_group_id
+    type: object
+    properties:
+      security_group_id:
+        title: Security group id
+        type: string
+        maxLength: 36
+        minLength: 36
+        default: null
+  AttachInterface:
+    required:
+      - network_id
+    type: object
+    properties:
+      network_id:
+        title: Network id
+        type: string
+        minLength: 1
+  BackupSchedule:
+    type: object
+    properties:
+      id:
+        title: Id
+        type: integer
+        maximum: 9223372036854775807
+        minimum: -9223372036854775808
+      instance:
+        title: Instance
+        type: string
+      rotation:
+        title: Rotation
+        type: integer
+        maximum: 2147483647
+        minimum: -2147483648
+      run_at:
+        title: Run at
+        type: string
+        format: date-time
+        x-nullable: true
+      backup_name:
+        title: Backup name
+        type: string
+        maxLength: 50
+        minLength: 1
+      backup_type:
+        title: Backup type
+        type: string
+        default: weekly
+  InstanceChangePassword:
+    required:
+      - admin_password
+    type: object
+    properties:
+      admin_password:
+        title: Admin password
+        type: string
+        maxLength: 32
+        minLength: 1
+        description: The new password for the instance administrator.
+
+  InstanceBackupCreate:
+    type: object
+    properties:
+      name:
+        title: Name
+        type: string
+        maxLength: 255
+        x-nullable: true
+      backup_type:
+        title: Backup type
+        type: string
+        default: weekly
+        minLength: 1
+  DetachInterface:
+    required:
+      - interface_id
+    type: object
+    properties:
+      interface_id:
+        title: Interface id
+        type: string
+        minLength: 1
+  InterfaceDetail:
+    required:
+      - interface_id
+    type: object
+    properties:
+      interface_id:
+        title: Interface id
+        type: string
+        minLength: 1
+  CustomizeFlavorSerialzer:
+    required:
+      - flavor_group
+    type: object
+    properties:
+      flavor_name:
+        title: Flavor name
+        type: string
+        x-nullable: true
+      flavor_group:
+        title: Flavor group
+        type: integer
+      ram:
+        title: Ram
+        type: integer
+        minimum: 1
+      disk:
+        title: Disk
+        type: integer
+        minimum: 20
+      vcpus:
+        title: Vcpus
+        type: integer
+        minimum: 1
+      region:
+        title: Region
+        type: string
+        enum:
+          - CLOUD-HN02
+          - HN-Cloud01
+  MetricsServer:
+    type: object
+    properties:
+      metric_type:
+        title: Metric type
+        type: string
+        enum:
+          - vcpu
+          - memory
+          - disk
+          - interface
+          - packet
+        default: vcpu
+      start_time:
+        title: Start time
+        description: Time of metrics to now
+        type: string
+        enum:
+          - 1h
+          - 2h
+          - 1d
+          - 7d
+          - 30d
+        default: 1d
+  InstanceRebuild:
+    required:
+      - image_id
+    type: object
+    properties:
+      instance_name:
+        title: Instance name
+        type: string
+        minLength: 1
+      image_id:
+        title: Image id
+        type: string
+        minLength: 1
+      ssh_key_ids:
+        description: List of ssh key ids
+        type: array
+        items:
+          type: integer
+  RemoveSecurityGroup:
+    required:
+      - security_group_id
+    type: object
+    properties:
+      security_group_id:
+        title: Security group id
+        type: string
+        maxLength: 36
+        minLength: 36
+  InstanceRename:
+    required:
+      - name
+    type: object
+    properties:
+      name:
+        title: Name
+        type: string
+        minLength: 1
+        description: A user-supplied label for this instance.
+  InstanceRescue:
+    required:
+      - image
+    type: object
+    properties:
+      image:
+        title: Image
+        type: string
+        maxLength: 36
+        minLength: 1
+        default: null
+  Snapshot:
+    required:
+      - id
+      - min_disk
+      - min_ram
+    type: object
+    properties:
+      id:
+        title: Id
+        type: string
+        maxLength: 36
+        minLength: 1
+      size_in_mb:
+        title: Size in mb
+        type: string
+        readOnly: true
+      size_in_gb:
+        title: Size in gb
+        type: string
+        readOnly: true
+      type:
+        title: Type
+        type: string
+        minLength: 1
+      thumbnail:
+        title: Thumbnail
+        type: string
+        readOnly: true
+      region:
+        title: Region
+        type: string
+        readOnly: true
+      name:
+        title: Name
+        type: string
+        maxLength: 255
+        x-nullable: true
+      owner:
+        title: Owner
+        type: string
+        maxLength: 255
+        x-nullable: true
+      status:
+        title: Status
+        type: string
+        maxLength: 14
+        x-nullable: true
+      size:
+        title: Size
+        type: integer
+        maximum: 9223372036854775807
+        minimum: -9223372036854775808
+        x-nullable: true
+      virtual_size:
+        title: Virtual size
+        type: integer
+        maximum: 9223372036854775807
+        minimum: -9223372036854775808
+        x-nullable: true
+      created_at:
+        title: Created at
+        type: string
+        format: date-time
+        x-nullable: true
+      updated_at:
+        title: Updated at
+        type: string
+        format: date-time
+        x-nullable: true
+      deleted_at:
+        title: Deleted at
+        type: string
+        format: date-time
+        x-nullable: true
+      os_distro:
+        title: Os distro
+        type: string
+        maxLength: 30
+        x-nullable: true
+      hypervisor_type:
+        title: Hypervisor type
+        type: string
+        maxLength: 32
+        x-nullable: true
+      os_type:
+        title: Os type
+        type: string
+        maxLength: 20
+        x-nullable: true
+      os_version:
+        title: Os version
+        type: string
+        maxLength: 16
+        x-nullable: true
+      architecture:
+        title: Architecture
+        type: string
+        maxLength: 32
+        x-nullable: true
+      min_disk:
+        title: Min disk
+        type: integer
+        maximum: 2147483647
+        minimum: -2147483648
+      min_ram:
+        title: Min ram
+        type: integer
+        maximum: 2147483647
+        minimum: -2147483648
+      protected:
+        title: Protected
+        type: boolean
+      visibility:
+        title: Visibility
+        type: string
+        maxLength: 10
+        x-nullable: true
+      container_format:
+        title: Container format
+        type: string
+        maxLength: 10
+        x-nullable: true
+      disk_format:
+        title: Disk format
+        type: string
+        maxLength: 10
+        x-nullable: true
+      properties:
+        title: Properties
+        type: string
+        x-nullable: true
+      tags:
+        title: Tags
+        type: string
+        x-nullable: true
+      hw_qemu_guest_agent:
+        title: Hw qemu guest agent
+        type: boolean
+      instance_uuid:
+        title: Instance uuid
+        type: string
+        maxLength: 36
+        x-nullable: true
+      volume_snapshot_uuid:
+        title: Volume snapshot uuid
+        type: string
+        maxLength: 36
+        x-nullable: true
+      sync_version:
+        title: Sync version
+        type: integer
+        maximum: 9223372036854775807
+        minimum: -9223372036854775808
+      user_data:
+        title: User data
+        type: string
+        x-nullable: true
+      example_server_info:
+        title: Example server info
+        type: string
+        x-nullable: true
+      is_default:
+        title: Is default
+        type: boolean
+      group:
+        title: Group
+        type: integer
+        x-nullable: true
+      project:
+        title: Project
+        type: string
+        x-nullable: true
+      flavor_groups:
+        type: array
+        items:
+          type: integer
+        uniqueItems: true
+      flavors:
+        type: array
+        items:
+          type: integer
+        uniqueItems: true
+  InstanceSummary:
+    required:
+      - id
+      - region
+    type: object
+    properties:
+      id:
+        title: Id
+        type: string
+        maxLength: 36
+        minLength: 1
+      image:
+        title: Image
+        type: string
+        readOnly: true
+      memory:
+        title: Memory
+        type: string
+        readOnly: true
+      flavor:
+        title: Flavor
+        type: string
+        readOnly: true
+      vcpus:
+        title: Vcpus
+        type: string
+        readOnly: true
+      total_traffic_in_cycle:
+        title: Total traffic in cycle
+        type: string
+        readOnly: true
+      total_traffic_in_month:
+        title: Total traffic in month
+        type: string
+        readOnly: true
+      project:
+        title: Project
+        type: string
+        readOnly: true
+      created:
+        title: Created
+        type: string
+        format: date-time
+        x-nullable: true
+      client:
+        title: Client
+        type: string
+        readOnly: true
+      region:
+        title: Region
+        type: string
+        minLength: 1
+  ReverseRecordSetUpdate:
+    required:
+      - reverse_dns
+      - ip_address
+    type: object
+    properties:
+      reverse_dns:
+        title: Reverse dns
+        type: string
+        maxLength: 255
+        minLength: 1
+        description: The IPv4 reverse entry.
+      ip_address:
+        title: Ip address
+        type: string
+        minLength: 1
+        description: The IPv4 address.
+  OrderUpgradeInstance:
+    required:
+      - flavor_type
+      - ram
+      - disk
+      - vcpus
+    type: object
+    properties:
+      flavor_type:
+        title: Flavor type
+        type: string
+        enum:
+          - Standard
+          - Premium
+      ram:
+        title: Ram
+        type: integer
+        minimum: 1
+      disk:
+        title: Disk
+        type: integer
+        minimum: 20
+      vcpus:
+        title: Vcpus
+        type: integer
+        minimum: 1
+      region:
+        title: Region
+        type: string
+        enum:
+          - HN-Cloud01
+          - HCM-CLOUD01
+  SmallFlavor:
+    required:
+      - name
+      - memory_mb
+    type: object
+    properties:
+      id:
+        title: Random id
+        type: integer
+        maximum: 9223372036854775807
+        minimum: -9223372036854775808
+      name:
+        title: Name
+        type: string
+        maxLength: 255
+        minLength: 1
+      description:
+        title: Description
+        type: string
+        maxLength: 1024
+      memory_mb:
+        title: Memory mb
+        type: integer
+        maximum: 2147483647
+        minimum: -2147483648
+      vcpus:
+        title: Vcpus
+        type: integer
+        maximum: 2147483647
+        minimum: -2147483648
+      swap:
+        title: Swap
+        type: integer
+        maximum: 2147483647
+        minimum: -2147483648
+      root_gb:
+        title: Root gb
+        type: integer
+        maximum: 2147483647
+        minimum: -2147483648
+        x-nullable: true
+      is_public:
+        title: Is public
+        type: boolean
+      available_for:
+        title: Available for
+        description: 'Set this flavor available for: ALL, LINUX, WINDOWS, .... Upper
+          case and separated by comma'
+        type: string
+        maxLength: 100
+        minLength: 1
+      trial_available:
+        title: Trial available
+        type: boolean
+      bandwidth:
+        title: Bandwidth
+        type: string
+        maxLength: 255
+        x-nullable: true
+      visibility:
+        title: Visibility
+        type: boolean
+  Image:
+    required:
+      - id
+      - min_disk
+      - min_ram
+    type: object
+    properties:
+      id:
+        title: Id
+        type: string
+        maxLength: 36
+        minLength: 1
+      size_in_mb:
+        title: Size in mb
+        type: string
+        readOnly: true
+      size_in_gb:
+        title: Size in gb
+        type: string
+        readOnly: true
+      type:
+        title: Type
+        type: string
+        minLength: 1
+      thumbnail:
+        title: Thumbnail
+        type: string
+        readOnly: true
+      region:
+        title: Region
+        type: string
+        readOnly: true
+      name:
+        title: Name
+        type: string
+        maxLength: 255
+        x-nullable: true
+      owner:
+        title: Owner
+        type: string
+        maxLength: 255
+        x-nullable: true
+      status:
+        title: Status
+        type: string
+        maxLength: 14
+        x-nullable: true
+      size:
+        title: Size
+        type: integer
+        maximum: 9223372036854775807
+        minimum: -9223372036854775808
+        x-nullable: true
+      virtual_size:
+        title: Virtual size
+        type: integer
+        maximum: 9223372036854775807
+        minimum: -9223372036854775808
+        x-nullable: true
+      created_at:
+        title: Created at
+        type: string
+        format: date-time
+        x-nullable: true
+      updated_at:
+        title: Updated at
+        type: string
+        format: date-time
+        x-nullable: true
+      deleted_at:
+        title: Deleted at
+        type: string
+        format: date-time
+        x-nullable: true
+      os_distro:
+        title: Os distro
+        type: string
+        maxLength: 30
+        x-nullable: true
+      hypervisor_type:
+        title: Hypervisor type
+        type: string
+        maxLength: 32
+        x-nullable: true
+      os_type:
+        title: Os type
+        type: string
+        maxLength: 20
+        x-nullable: true
+      os_version:
+        title: Os version
+        type: string
+        maxLength: 16
+        x-nullable: true
+      architecture:
+        title: Architecture
+        type: string
+        maxLength: 32
+        x-nullable: true
+      min_disk:
+        title: Min disk
+        type: integer
+        maximum: 2147483647
+        minimum: -2147483648
+      min_ram:
+        title: Min ram
+        type: integer
+        maximum: 2147483647
+        minimum: -2147483648
+      protected:
+        title: Protected
+        type: boolean
+      visibility:
+        title: Visibility
+        type: string
+        maxLength: 10
+        x-nullable: true
+      container_format:
+        title: Container format
+        type: string
+        maxLength: 10
+        x-nullable: true
+      disk_format:
+        title: Disk format
+        type: string
+        maxLength: 10
+        x-nullable: true
+      properties:
+        title: Properties
+        type: string
+        x-nullable: true
+      tags:
+        title: Tags
+        type: string
+        x-nullable: true
+      hw_qemu_guest_agent:
+        title: Hw qemu guest agent
+        type: boolean
+      instance_uuid:
+        title: Instance uuid
+        type: string
+        maxLength: 36
+        x-nullable: true
+      volume_snapshot_uuid:
+        title: Volume snapshot uuid
+        type: string
+        maxLength: 36
+        x-nullable: true
+      sync_version:
+        title: Sync version
+        type: integer
+        maximum: 9223372036854775807
+        minimum: -9223372036854775808
+      user_data:
+        title: User data
+        type: string
+        x-nullable: true
+      example_server_info:
+        title: Example server info
+        type: string
+        x-nullable: true
+      is_default:
+        title: Is default
+        type: boolean
+      group:
+        title: Group
+        type: integer
+        x-nullable: true
+      project:
+        title: Project
+        type: string
+        x-nullable: true
+      brand_name:
+        title: Brand name
+        type: integer
+        x-nullable: true
+      flavor_groups:
+        type: array
+        items:
+          type: integer
+        uniqueItems: true
+      flavors:
+        type: array
+        items:
+          type: integer
+        uniqueItems: true
+  InstanceSnapshotCreate:
+    required:
+      - name
+    type: object
+    properties:
+      name:
+        title: Name
+        type: string
+        maxLength: 255
+
+      description:
+        title: Description
+        type: string
+        maxLength: 255
+        x-nullable: true
+        default: null
+  CloudRegion:
+    required:
+      - id
+      - name
+    type: object
+    properties:
+      id:
+        title: Id
+        type: string
+        maxLength: 36
+        minLength: 1
+      name:
+        title: Name
+        type: string
+        maxLength: 255
+      description:
+        title: Description
+        type: string
+        maxLength: 1024
+
+responses:
+  UnauthorizedError:
+    description: Authentication failed due to invalid credentials.
+    schema:
+      type: object
+      properties:
+        detail:
+          type: string
+          default: 'Invalid Token.'
+  NotFoundError:
+    description: The resource was not found.
+    schema:
+      type: object
+      properties:
+        detail:
+          type: string
+          default: 'The resource you requested could not be found.'
+  InternalServerError:
+    description: An internal server error occurred.
+    schema:
+      type: object
+      properties:
+        detail:
+          type: string
+          default: 'Internal Server Error.'
+  BadRequestError:
+    description: There was an error parsing the request body.
+    schema:
+      type: object
+      properties:
+        detail:
+          type: string
+          default: 'Bad Request.'
