@@ -308,3 +308,64 @@ func TestWaitInstanceStopped_Timeout(t *testing.T) {
 		t.Fatal("expected timeout error")
 	}
 }
+
+func TestCreateSnapshot(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/instances/i1/create_snapshot" || r.Method != http.MethodPost {
+			t.Errorf("unexpected: %s %s", r.Method, r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"detail":"Create snapshot is in progress, please wait a moment"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	err := c.CreateSnapshot(context.Background(), "i1", SnapshotCreate{Name: "snap1"})
+	if err != nil {
+		t.Fatalf("CreateSnapshot error: %v", err)
+	}
+}
+
+func TestListSnapshots(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[{"id":"snap-1","name":"snap1","status":"available","size":1024,"size_in_gb":"1"}]`))
+	}))
+	t.Cleanup(srv.Close)
+	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	snaps, err := c.ListSnapshots(context.Background(), "i1")
+	if err != nil {
+		t.Fatalf("ListSnapshots error: %v", err)
+	}
+	if len(snaps) != 1 || snaps[0].ID != "snap-1" {
+		t.Errorf("unexpected: %+v", snaps)
+	}
+}
+
+func TestGetSnapshot_Found(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[{"id":"snap-1","name":"snap1","status":"available"}]`))
+	}))
+	t.Cleanup(srv.Close)
+	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	snap, err := c.GetSnapshot(context.Background(), "i1", "snap-1")
+	if err != nil {
+		t.Fatalf("GetSnapshot error: %v", err)
+	}
+	if snap.ID != "snap-1" {
+		t.Errorf("unexpected: %+v", snap)
+	}
+}
+
+func TestGetSnapshot_NotFound(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	t.Cleanup(srv.Close)
+	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	_, err := c.GetSnapshot(context.Background(), "i1", "missing")
+	if err == nil {
+		t.Fatal("expected error for missing snapshot")
+	}
+}
