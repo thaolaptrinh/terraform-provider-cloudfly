@@ -80,7 +80,9 @@ func (p *CloudFlyProvider) Configure(ctx context.Context, req provider.Configure
 }
 
 func (p *CloudFlyProvider) Resources(ctx context.Context) []func() resource.Resource {
-	return nil
+	return []func() resource.Resource{
+		NewInstanceResource,
+	}
 }
 
 func (p *CloudFlyProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
