@@ -43,6 +43,7 @@ resource "cloudfly_instance" "example" {
 - `enable_ipv6` (Boolean)
 - `enable_private_network` (Boolean)
 - `name` (String)
+- `network_ids` (List of String) Additional network IDs to attach to the instance. The default public network is managed automatically and excluded from this list.
 - `power_state` (String) Desired power state of the instance. Valid values: `running`, `stopped`.
 - `reboot` (Boolean) Set to `true` to reboot the instance. Resets to `null` after the reboot completes.
 - `reverse_dns` (String) Reverse DNS entry for the instance's primary IPv4 address.

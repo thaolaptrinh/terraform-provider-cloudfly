@@ -47,7 +47,11 @@ type InstancesAPI interface {
 	AddSecurityGroup(ctx context.Context, id string, sgID string) error
 	RemoveSecurityGroup(ctx context.Context, id string, sgID string) error
 	ListSecurityGroups(ctx context.Context, id string) ([]client.SecurityGroup, error)
+	ListInterfaces(ctx context.Context, id string) ([]client.InterfaceGroup, error)
+	AttachInterface(ctx context.Context, id, networkID string) error
+	DetachInterface(ctx context.Context, id, interfaceID string) error
 	WaitInstanceStopped(ctx context.Context, id string, timeout, interval time.Duration) error
+	EnableIPv6Range(ctx context.Context, id string) error
 }
 
 type instanceResource struct {
@@ -76,6 +80,7 @@ type InstanceResourceModel struct {
 	AdminPassword    types.String `tfsdk:"admin_password"`
 	ReverseDNS       types.String `tfsdk:"reverse_dns"`
 	SecurityGroupIDs types.List   `tfsdk:"security_group_ids"`
+	NetworkIDs       types.List   `tfsdk:"network_ids"`
 
 	AccessIPv6            types.String `tfsdk:"access_ipv6"`
 	Username              types.String `tfsdk:"username"`
@@ -113,7 +118,7 @@ func (r *instanceResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 			"ram":                    schema.Int64Attribute{Required: true, Validators: []validator.Int64{int64validator.AtLeast(1)}, PlanModifiers: []planmodifier.Int64{int64planmodifier.RequiresReplace()}},
 			"vcpus":                  schema.Int64Attribute{Required: true, Validators: []validator.Int64{int64validator.AtLeast(1)}, PlanModifiers: []planmodifier.Int64{int64planmodifier.RequiresReplace()}},
 			"disk":                   schema.Int64Attribute{Required: true, Validators: []validator.Int64{int64validator.AtLeast(20)}, PlanModifiers: []planmodifier.Int64{int64planmodifier.RequiresReplace()}},
-			"enable_ipv6":            schema.BoolAttribute{Optional: true, PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()}},
+			"enable_ipv6":            schema.BoolAttribute{Optional: true},
 			"enable_private_network": schema.BoolAttribute{Optional: true, PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()}},
 			"auto_backup":            schema.BoolAttribute{Optional: true, PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()}},
 			"ssh_key_ids":            schema.ListAttribute{ElementType: types.Int64Type, Optional: true, PlanModifiers: []planmodifier.List{listplanmodifier.RequiresReplace()}},
@@ -142,6 +147,11 @@ func (r *instanceResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 			},
 			"security_group_ids": schema.ListAttribute{
 				MarkdownDescription: "Security group IDs to assign to the instance.",
+				ElementType:         types.StringType,
+				Optional:            true,
+			},
+			"network_ids": schema.ListAttribute{
+				MarkdownDescription: "Additional network IDs to attach to the instance. The default public network is managed automatically and excluded from this list.",
 				ElementType:         types.StringType,
 				Optional:            true,
 			},
@@ -287,8 +297,22 @@ func (r *instanceResource) applyUpdate(ctx context.Context, state, plan *Instanc
 		}
 	}
 
+	if !state.EnableIPv6.Equal(plan.EnableIPv6) {
+		if plan.EnableIPv6.ValueBool() && !state.EnableIPv6.ValueBool() {
+			if err := r.api.EnableIPv6Range(ctx, id); err != nil {
+				return fmt.Errorf("enable ipv6: %w", err)
+			}
+		}
+	}
+
 	if !state.SecurityGroupIDs.Equal(plan.SecurityGroupIDs) {
 		if err := r.reconcileSecurityGroups(ctx, id, plan.SecurityGroupIDs); err != nil {
+			return err
+		}
+	}
+
+	if !state.NetworkIDs.Equal(plan.NetworkIDs) {
+		if err := r.reconcileNetworks(ctx, id, plan.NetworkIDs); err != nil {
 			return err
 		}
 	}
@@ -340,6 +364,62 @@ func (r *instanceResource) reconcileSecurityGroups(ctx context.Context, id strin
 			}
 		}
 	}
+	return nil
+}
+
+// reconcileNetworks brings the instance's attached networks in line with the
+// plan list. Attach uses network_id; detach uses interface_id (one network
+// may have multiple interfaces). The default public network is excluded.
+func (r *instanceResource) reconcileNetworks(ctx context.Context, id string, planList types.List) error {
+	if planList.IsNull() || planList.IsUnknown() {
+		return nil
+	}
+
+	groups, err := r.api.ListInterfaces(ctx, id)
+	if err != nil {
+		return fmt.Errorf("list interfaces: %w", err)
+	}
+
+	planIDs := make(map[string]bool)
+	var planSlice []string
+	if diags := planList.ElementsAs(ctx, &planSlice, false); diags.HasError() {
+		return fmt.Errorf("decode network_ids: %v", diags.Errors())
+	}
+	for _, nid := range planSlice {
+		planIDs[nid] = true
+	}
+
+	currentNetworks := make(map[string]bool)
+	currentInterfaces := make(map[string][]string) // networkID -> []interfaceID
+
+	for _, group := range groups {
+		for _, item := range group.Data {
+			if item.IsDefault && group.IsPublic {
+				continue
+			}
+			currentNetworks[item.NetworkID] = true
+			currentInterfaces[item.NetworkID] = append(currentInterfaces[item.NetworkID], item.InterfaceID)
+		}
+	}
+
+	for _, nid := range planSlice {
+		if !currentNetworks[nid] {
+			if err := r.api.AttachInterface(ctx, id, nid); err != nil {
+				return fmt.Errorf("attach network %s: %w", nid, err)
+			}
+		}
+	}
+
+	for nid := range currentNetworks {
+		if !planIDs[nid] {
+			for _, ifID := range currentInterfaces[nid] {
+				if err := r.api.DetachInterface(ctx, id, ifID); err != nil {
+					return fmt.Errorf("detach interface %s: %w", ifID, err)
+				}
+			}
+		}
+	}
+
 	return nil
 }
 

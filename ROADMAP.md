@@ -58,8 +58,8 @@ Implement CloudFly instance capabilities using Terraform resource lifecycle oper
 
 ### Networking
 
-- [ ] Network interface management (list interfaces endpoint commented out in API spec)
-- [ ] IPv6 configuration (available at create time via RequiresReplace; post-create niche)
+- [x] Network interface management
+- [x] IPv6 configuration
 - [x] Reverse DNS
 
 ### Security
@@ -69,7 +69,7 @@ Implement CloudFly instance capabilities using Terraform resource lifecycle oper
 ### Backup
 
 - [x] Snapshot management
-- [ ] Backup management (backup schedule create endpoint commented out; read-only data source available)
+- [x] Backup management
 
 ### Monitoring
 

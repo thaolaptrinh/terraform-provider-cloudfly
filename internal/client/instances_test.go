@@ -425,16 +425,16 @@ func TestGetUsageSummary(t *testing.T) {
 	}
 }
 
-func TestGetBackupSchedules(t *testing.T) {
+func TestListBackupSchedules(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`[{"id":1,"instance":"i1","rotation":7,"run_at":"2026-01-01T00:00:00Z","backup_name":"weekly","backup_type":"weekly"}]`))
 	}))
 	t.Cleanup(srv.Close)
 	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
-	schedules, err := c.GetBackupSchedules(context.Background(), "i1")
+	schedules, err := c.ListBackupSchedules(context.Background(), "i1")
 	if err != nil {
-		t.Fatalf("GetBackupSchedules error: %v", err)
+		t.Fatalf("ListBackupSchedules error: %v", err)
 	}
 	if len(schedules) != 1 || schedules[0].BackupType != "weekly" {
 		t.Errorf("unexpected: %+v", schedules)
