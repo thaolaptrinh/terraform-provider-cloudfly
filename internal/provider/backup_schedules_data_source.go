@@ -92,7 +92,7 @@ func (d *backupSchedulesDataSource) Read(ctx context.Context, req datasource.Rea
 		return
 	}
 
-	listValue, diags := schedulesToList(ctx, schedules)
+	listValue, diags := schedulesToList(schedules)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -105,7 +105,7 @@ func (d *backupSchedulesDataSource) Read(ctx context.Context, req datasource.Rea
 // schedulesToList converts a slice of client.BackupSchedule into a
 // framework-compatible types.List of nested objects. Pure helper, tested
 // directly without a live datasource.Read.
-func schedulesToList(ctx context.Context, schedules []client.BackupSchedule) (types.List, diag.Diagnostics) {
+func schedulesToList(schedules []client.BackupSchedule) (types.List, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	scheduleObjs := make([]attr.Value, 0, len(schedules))
 	for _, s := range schedules {

@@ -103,7 +103,7 @@ func TestWaitForSnapshot_CancelledContext(t *testing.T) {
 // --- backup schedules mapper (schedulesToList) ---
 
 func TestSchedulesToList_Empty(t *testing.T) {
-	l, diags := schedulesToList(context.Background(), nil)
+	l, diags := schedulesToList(nil)
 	if diags.HasError() {
 		t.Fatalf("unexpected diags: %v", diags)
 	}
@@ -117,7 +117,7 @@ func TestSchedulesToList_One(t *testing.T) {
 		ID: 1, Instance: "i1", Rotation: 7, RunAt: "03:00",
 		BackupName: "daily", BackupType: "auto",
 	}}
-	l, diags := schedulesToList(context.Background(), in)
+	l, diags := schedulesToList(in)
 	if diags.HasError() {
 		t.Fatalf("unexpected diags: %v", diags)
 	}
@@ -133,7 +133,7 @@ func TestSchedulesToList_Many(t *testing.T) {
 		{ID: 2, BackupName: "b"},
 		{ID: 3, BackupName: "c"},
 	}
-	l, diags := schedulesToList(context.Background(), in)
+	l, diags := schedulesToList(in)
 	if diags.HasError() {
 		t.Fatalf("unexpected diags: %v", diags)
 	}
