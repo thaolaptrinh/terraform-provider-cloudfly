@@ -173,6 +173,6 @@ CloudFly is a trademark of its respective owner.
 
 ## License
 
-Licensed under the Apache License 2.0.
+Licensed under the Mozilla Public License 2.0 (MPL-2.0).
 
 See the `LICENSE` file for details.
