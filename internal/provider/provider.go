@@ -84,7 +84,9 @@ func (p *CloudFlyProvider) Resources(ctx context.Context) []func() resource.Reso
 }
 
 func (p *CloudFlyProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
-	return nil
+	return []func() datasource.DataSource{
+		NewRegionsDataSource,
+	}
 }
 
 func New(version string) func() provider.Provider {
