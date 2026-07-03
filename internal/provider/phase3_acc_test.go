@@ -321,7 +321,6 @@ resource "cloudfly_instance" "test" {
 resource "cloudfly_backup_schedule" "test" {
   instance_id = cloudfly_instance.test.id
   backup_type = "weekly"
-  name        = "tf-acc-backup"
 }
 `, phase3BaseAttrs)
 }

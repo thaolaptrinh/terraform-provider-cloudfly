@@ -6,7 +6,6 @@ package provider
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -52,11 +51,11 @@ func (r *backupScheduleResource) Metadata(_ context.Context, _ resource.Metadata
 
 func (r *backupScheduleResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Manages a CloudFly instance backup schedule.",
+		MarkdownDescription: "Manages a CloudFly instance backup schedule. The API auto-generates the schedule name; the `name` attribute is read-only.",
 		Attributes: map[string]schema.Attribute{
 			"id":          schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
 			"instance_id": schema.StringAttribute{Required: true, PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()}},
-			"name":        schema.StringAttribute{Optional: true, PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()}},
+			"name":        schema.StringAttribute{Computed: true},
 			"backup_type": schema.StringAttribute{Optional: true, PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()}},
 			"rotation":    schema.Int64Attribute{Computed: true, PlanModifiers: []planmodifier.Int64{int64planmodifier.UseStateForUnknown()}},
 			"run_at":      schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
@@ -90,7 +89,6 @@ func (r *backupScheduleResource) Create(ctx context.Context, req resource.Create
 	}
 
 	createReq := client.BackupScheduleCreate{
-		Name:       plan.Name.ValueString(),
 		BackupType: backupType,
 	}
 
@@ -99,21 +97,17 @@ func (r *backupScheduleResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
-	found, err := waitForBackupSchedule(ctx, r.api, instID, backupType, plan.Name.ValueString(), backupScheduleCreateTimeout, backupSchedulePollInterval)
+	found, err := waitForBackupSchedule(ctx, r.api, instID, backupType, backupScheduleCreateTimeout, backupSchedulePollInterval)
 	if err != nil {
 		resp.Diagnostics.AddError("Backup schedule did not appear", err.Error())
 		return
 	}
 
 	backupScheduleToModel(found, &plan)
-	plan.BackupType = types.StringValue(backupType)
-	if plan.Name.ValueString() != "" {
-		plan.Name = types.StringValue(plan.Name.ValueString())
-	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
-func waitForBackupSchedule(ctx context.Context, api BackupScheduleAPI, instID, backupType, name string, timeout, interval time.Duration) (*client.BackupSchedule, error) {
+func waitForBackupSchedule(ctx context.Context, api BackupScheduleAPI, instID, backupType string, timeout, interval time.Duration) (*client.BackupSchedule, error) {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
 		select {
@@ -127,14 +121,12 @@ func waitForBackupSchedule(ctx context.Context, api BackupScheduleAPI, instID, b
 		}
 		for i := range schedules {
 			if schedules[i].Instance == instID && schedules[i].BackupType == backupType {
-				if name == "" || strings.Contains(schedules[i].BackupName, name) {
-					return &schedules[i], nil
-				}
+				return &schedules[i], nil
 			}
 		}
 		time.Sleep(interval)
 	}
-	return nil, fmt.Errorf("backup schedule (type=%q, name=%q) not found on instance %q within %s", backupType, name, instID, timeout)
+	return nil, fmt.Errorf("backup schedule (type=%q) not found on instance %q within %s", backupType, instID, timeout)
 }
 
 func (r *backupScheduleResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {

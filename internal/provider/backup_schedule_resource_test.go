@@ -103,7 +103,7 @@ func TestWaitForBackupSchedule_Immediate(t *testing.T) {
 			ID: 1, Instance: "i1", BackupType: "weekly", BackupName: "test-backup",
 		}},
 	}
-	got, err := waitForBackupSchedule(context.Background(), mock, "i1", "weekly", "test-backup", time.Second, time.Millisecond)
+	got, err := waitForBackupSchedule(context.Background(), mock, "i1", "weekly", time.Second, time.Millisecond)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -115,21 +115,9 @@ func TestWaitForBackupSchedule_Immediate(t *testing.T) {
 	}
 }
 
-func TestWaitForBackupSchedule_NameMismatch(t *testing.T) {
-	mock := &mockBackupScheduleAPI{
-		listResult: []client.BackupSchedule{{
-			ID: 1, Instance: "i1", BackupType: "weekly", BackupName: "wrong-name",
-		}},
-	}
-	_, err := waitForBackupSchedule(context.Background(), mock, "i1", "weekly", "expected-name", time.Second, time.Millisecond)
-	if err == nil {
-		t.Fatal("expected timeout on name mismatch, got nil")
-	}
-}
-
 func TestWaitForBackupSchedule_Timeout(t *testing.T) {
 	mock := &mockBackupScheduleAPI{listResult: nil}
-	_, err := waitForBackupSchedule(context.Background(), mock, "i1", "weekly", "", 50*time.Millisecond, 5*time.Millisecond)
+	_, err := waitForBackupSchedule(context.Background(), mock, "i1", "weekly", 50*time.Millisecond, 5*time.Millisecond)
 	if err == nil {
 		t.Fatal("expected timeout error, got nil")
 	}
@@ -140,7 +128,7 @@ func TestWaitForBackupSchedule_Timeout(t *testing.T) {
 
 func TestWaitForBackupSchedule_ListError(t *testing.T) {
 	mock := &mockBackupScheduleAPI{listErr: errors.New("net error")}
-	_, err := waitForBackupSchedule(context.Background(), mock, "i1", "weekly", "", 100*time.Millisecond, time.Millisecond)
+	_, err := waitForBackupSchedule(context.Background(), mock, "i1", "weekly", 100*time.Millisecond, time.Millisecond)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -150,7 +138,7 @@ func TestWaitForBackupSchedule_CancelledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	mock := &mockBackupScheduleAPI{listResult: nil}
-	_, err := waitForBackupSchedule(ctx, mock, "i1", "weekly", "", time.Second, time.Millisecond)
+	_, err := waitForBackupSchedule(ctx, mock, "i1", "weekly", time.Second, time.Millisecond)
 	if err == nil {
 		t.Fatal("expected ctx cancellation error, got nil")
 	}
