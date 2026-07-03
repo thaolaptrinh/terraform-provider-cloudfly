@@ -488,6 +488,59 @@ func TestUpdate_Network_NullPlanSkipped(t *testing.T) {
 	}
 }
 
+func TestUpdate_Network_ListError(t *testing.T) {
+	mock := &mockInstancesAPI{
+		getInstance:       &client.Instance{ID: "i1", Status: "ACTIVE"},
+		listInterfacesErr: errSentinel("list-fail"),
+	}
+	state := InstanceResourceModel{ID: types.StringValue("i1")}
+	plan := InstanceResourceModel{
+		ID:         types.StringValue("i1"),
+		NetworkIDs: strList(t, "net-1"),
+	}
+	r := &instanceResource{api: mock}
+	if err := r.applyUpdate(context.Background(), &state, &plan); err == nil {
+		t.Fatal("expected list error, got nil")
+	}
+}
+
+func TestUpdate_Network_AttachError(t *testing.T) {
+	mock := &mockInstancesAPI{
+		getInstance:          &client.Instance{ID: "i1", Status: "ACTIVE"},
+		listInterfacesReturn: nil,
+		attachErr:            errSentinel("attach-fail"),
+	}
+	state := InstanceResourceModel{ID: types.StringValue("i1")}
+	plan := InstanceResourceModel{
+		ID:         types.StringValue("i1"),
+		NetworkIDs: strList(t, "net-1"),
+	}
+	r := &instanceResource{api: mock}
+	if err := r.applyUpdate(context.Background(), &state, &plan); err == nil {
+		t.Fatal("expected attach error, got nil")
+	}
+}
+
+func TestUpdate_Network_DetachError(t *testing.T) {
+	mock := &mockInstancesAPI{
+		getInstance: &client.Instance{ID: "i1", Status: "ACTIVE"},
+		listInterfacesReturn: []client.InterfaceGroup{{
+			Data:     []client.InterfaceItem{{InterfaceID: "if-1", NetworkID: "net-1"}},
+			IsPublic: false,
+		}},
+		detachErr: errSentinel("detach-fail"),
+	}
+	state := InstanceResourceModel{ID: types.StringValue("i1")}
+	plan := InstanceResourceModel{
+		ID:         types.StringValue("i1"),
+		NetworkIDs: strList(t),
+	}
+	r := &instanceResource{api: mock}
+	if err := r.applyUpdate(context.Background(), &state, &plan); err == nil {
+		t.Fatal("expected detach error, got nil")
+	}
+}
+
 // errSentinel is a simple error for mocking API failures.
 type errSentinel string
 

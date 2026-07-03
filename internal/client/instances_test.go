@@ -440,3 +440,154 @@ func TestListBackupSchedules(t *testing.T) {
 		t.Errorf("unexpected: %+v", schedules)
 	}
 }
+
+// --- Phase 03: interfaces ---
+
+func TestEnableIPv6Range(t *testing.T) {
+	var method string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		method = r.Method
+		if r.URL.Path != "/instances/i1/enable-ipv6-range" || r.Method != http.MethodPost {
+			t.Errorf("unexpected: %s %s", r.Method, r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"detail":"ok"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	if err := c.EnableIPv6Range(context.Background(), "i1"); err != nil {
+		t.Fatalf("EnableIPv6Range error: %v", err)
+	}
+	if method != http.MethodPost {
+		t.Errorf("method = %s, want POST", method)
+	}
+}
+
+func TestEnableIPv6RangeError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"detail":"err"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	if err := c.EnableIPv6Range(context.Background(), "i1"); err == nil {
+		t.Fatal("expected error from 500, got nil")
+	}
+}
+
+func TestListInterfaces(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/instances/i1/interfaces" || r.Method != http.MethodGet {
+			t.Errorf("unexpected: %s %s", r.Method, r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[{"data":[{"interface_id":"if-1","network_id":"net-1","ip_address":"10.0.0.1","is_default":true}],"network_name":"public","is_public":true}]`))
+	}))
+	t.Cleanup(srv.Close)
+	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	groups, err := c.ListInterfaces(context.Background(), "i1")
+	if err != nil {
+		t.Fatalf("ListInterfaces error: %v", err)
+	}
+	if len(groups) != 1 || !groups[0].IsPublic || len(groups[0].Data) != 1 {
+		t.Errorf("unexpected: %+v", groups)
+	}
+	if groups[0].Data[0].InterfaceID != "if-1" || groups[0].Data[0].IPAddress != "10.0.0.1" {
+		t.Errorf("unexpected data: %+v", groups[0].Data[0])
+	}
+}
+
+func TestListInterfacesEmpty(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	t.Cleanup(srv.Close)
+	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	groups, err := c.ListInterfaces(context.Background(), "i1")
+	if err != nil {
+		t.Fatalf("ListInterfaces error: %v", err)
+	}
+	if len(groups) != 0 {
+		t.Errorf("expected 0 groups, got %d", len(groups))
+	}
+}
+
+func TestListInterfacesError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"detail":"not found"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	_, err := c.ListInterfaces(context.Background(), "i1")
+	if err == nil {
+		t.Fatal("expected error from 404, got nil")
+	}
+}
+
+func TestAttachInterface(t *testing.T) {
+	var body []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/instances/i1/attach-interface" || r.Method != http.MethodPost {
+			t.Errorf("unexpected: %s %s", r.Method, r.URL.Path)
+		}
+		body = make([]byte, r.ContentLength)
+		r.Body.Read(body)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"detail":"ok"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	if err := c.AttachInterface(context.Background(), "i1", "net-1"); err != nil {
+		t.Fatalf("AttachInterface error: %v", err)
+	}
+	if string(body) != `{"network_id":"net-1"}` {
+		t.Errorf("body = %q, want {\"network_id\":\"net-1\"}", string(body))
+	}
+}
+
+func TestAttachInterfaceError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"detail":"invalid"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	if err := c.AttachInterface(context.Background(), "i1", "bad"); err == nil {
+		t.Fatal("expected error from 400, got nil")
+	}
+}
+
+func TestDetachInterface(t *testing.T) {
+	var body []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/instances/i1/detach-interface" || r.Method != http.MethodPost {
+			t.Errorf("unexpected: %s %s", r.Method, r.URL.Path)
+		}
+		body = make([]byte, r.ContentLength)
+		r.Body.Read(body)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"detail":"ok"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	if err := c.DetachInterface(context.Background(), "i1", "if-1"); err != nil {
+		t.Fatalf("DetachInterface error: %v", err)
+	}
+	if string(body) != `{"interface_id":"if-1"}` {
+		t.Errorf("body = %q, want {\"interface_id\":\"if-1\"}", string(body))
+	}
+}
+
+func TestDetachInterfaceError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusConflict)
+		_, _ = w.Write([]byte(`{"detail":"busy"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	if err := c.DetachInterface(context.Background(), "i1", "if-1"); err == nil {
+		t.Fatal("expected error from 409, got nil")
+	}
+}
