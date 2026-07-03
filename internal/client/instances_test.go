@@ -136,3 +136,175 @@ func TestWaitInstanceDeleted_PollsUntil404(t *testing.T) {
 		t.Errorf("calls=%d, want >=2", calls)
 	}
 }
+
+func TestStartInstance(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/instances/i1/start" || r.Method != http.MethodGet {
+			t.Errorf("unexpected: %s %s", r.Method, r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"detail":"Instance started"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	if err := c.StartInstance(context.Background(), "i1"); err != nil {
+		t.Fatalf("StartInstance error: %v", err)
+	}
+}
+
+func TestStopInstance(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/instances/i1/stop" || r.Method != http.MethodGet {
+			t.Errorf("unexpected: %s %s", r.Method, r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"detail":"Instance is stopping"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	if err := c.StopInstance(context.Background(), "i1"); err != nil {
+		t.Fatalf("StopInstance error: %v", err)
+	}
+}
+
+func TestRebootInstance(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/instances/i1/reboot" || r.Method != http.MethodPost {
+			t.Errorf("unexpected: %s %s", r.Method, r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"detail":"reboot server is in progress, please wait a moment"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	if err := c.RebootInstance(context.Background(), "i1"); err != nil {
+		t.Fatalf("RebootInstance error: %v", err)
+	}
+}
+
+func TestRenameInstance(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/instances/i1/rename" || r.Method != http.MethodPost {
+			t.Errorf("unexpected: %s %s", r.Method, r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"detail":"The server has been rename successfully initialized. Please wait a moment"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	if err := c.RenameInstance(context.Background(), "i1", "newname"); err != nil {
+		t.Fatalf("RenameInstance error: %v", err)
+	}
+}
+
+func TestChangePassword(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/instances/i1/change-password" || r.Method != http.MethodPost {
+			t.Errorf("unexpected: %s %s", r.Method, r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"detail":"Change instance password successfully"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	if err := c.ChangePassword(context.Background(), "i1", "newpw"); err != nil {
+		t.Fatalf("ChangePassword error: %v", err)
+	}
+}
+
+func TestUpdateReverseDNS(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/instances/i1/update-reverse-dns" || r.Method != http.MethodPost {
+			t.Errorf("unexpected: %s %s", r.Method, r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"detail":"Successfully updated reverse dns"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	if err := c.UpdateReverseDNS(context.Background(), "i1", "host.example.com", "1.2.3.4"); err != nil {
+		t.Fatalf("UpdateReverseDNS error: %v", err)
+	}
+}
+
+func TestAddSecurityGroup(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/instances/i1/add-security-group" || r.Method != http.MethodPost {
+			t.Errorf("unexpected: %s %s", r.Method, r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"detail":"Successfully added security group to server"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	if err := c.AddSecurityGroup(context.Background(), "i1", "sg-abc123"); err != nil {
+		t.Fatalf("AddSecurityGroup error: %v", err)
+	}
+}
+
+func TestRemoveSecurityGroup(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/instances/i1/remove-security-group" || r.Method != http.MethodPost {
+			t.Errorf("unexpected: %s %s", r.Method, r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"detail":"Successfully removed security group from server"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	if err := c.RemoveSecurityGroup(context.Background(), "i1", "sg-abc123"); err != nil {
+		t.Fatalf("RemoveSecurityGroup error: %v", err)
+	}
+}
+
+func TestListSecurityGroups(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/instances/i1/security-groups" || r.Method != http.MethodGet {
+			t.Errorf("unexpected: %s %s", r.Method, r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[{"id":"sg-1","name":"default"},{"id":"sg-2","name":"web"}]}`))
+	}))
+	t.Cleanup(srv.Close)
+	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	sgs, err := c.ListSecurityGroups(context.Background(), "i1")
+	if err != nil {
+		t.Fatalf("ListSecurityGroups error: %v", err)
+	}
+	if len(sgs) != 2 || sgs[0].ID != "sg-1" || sgs[1].ID != "sg-2" {
+		t.Errorf("unexpected SGs: %+v", sgs)
+	}
+}
+
+func TestWaitInstanceStopped_PollsUntilShutoff(t *testing.T) {
+	var calls int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := atomic.AddInt32(&calls, 1)
+		w.Header().Set("Content-Type", "application/json")
+		if n < 3 {
+			_, _ = w.Write([]byte(`{"id":"i1","status":"ACTIVE"}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"id":"i1","status":"SHUTOFF"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	if err := c.WaitInstanceStopped(context.Background(), "i1", 1*time.Second, 1*time.Millisecond); err != nil {
+		t.Fatalf("expected nil, got %v", err)
+	}
+	if calls < 3 {
+		t.Errorf("calls=%d, want >=3", calls)
+	}
+}
+
+func TestWaitInstanceStopped_Timeout(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"id":"i1","status":"ACTIVE"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	err := c.WaitInstanceStopped(context.Background(), "i1", 50*time.Millisecond, 10*time.Millisecond)
+	if err == nil {
+		t.Fatal("expected timeout error")
+	}
+}
