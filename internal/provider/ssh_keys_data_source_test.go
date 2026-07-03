@@ -4,20 +4,10 @@
 package provider
 
 import (
-	"context"
 	"testing"
 
 	"github.com/thaolaptrinh/terraform-provider-cloudfly/internal/client"
 )
-
-type fakeSSHKeysAPI struct {
-	keys []client.SSHKey
-	err  error
-}
-
-func (f *fakeSSHKeysAPI) ListSSHKeys(_ context.Context) ([]client.SSHKey, error) {
-	return f.keys, f.err
-}
 
 func TestToSSHKeyModels(t *testing.T) {
 	in := []client.SSHKey{{ID: 7, Name: "k", PublicKey: "pk", Fingerprint: "fp", CreatedAt: "2026"}}

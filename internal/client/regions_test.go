@@ -16,7 +16,7 @@ func TestListRegions(t *testing.T) {
 			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"count":2,"results":[{"id":"r1","name":"HN-Cloud01","description":"HN"},{"id":"r2","name":"CLOUD-HN02","description":"HN2"}]}`))
+		_, _ = w.Write([]byte(`{"count":2,"results":[{"id":"r1","name":"HN-Cloud01","description":"HN"},{"id":"r2","name":"CLOUD-HN02","description":"HN2"}]}`))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -33,7 +33,7 @@ func TestListRegions(t *testing.T) {
 func TestListRegions_HTTPError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"detail":"Invalid Token."}`))
+		_, _ = w.Write([]byte(`{"detail":"Invalid Token."}`))
 	}))
 	t.Cleanup(srv.Close)
 	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})

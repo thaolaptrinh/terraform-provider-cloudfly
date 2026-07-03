@@ -16,7 +16,7 @@ func TestGetInstanceOptions(t *testing.T) {
 			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"configs":[{"name":"20GB SSD","description":"Small","prices":{"price_per_month":5.0,"price_per_hour":0.01},"region":{"name":"HN-Cloud01","description":"HN"},"memory_mb":1024,"vcpus":1,"root_gb":20,"flavor_group":{"name":"Standard","description":"Std","max_ip_addon":6}}]}`))
+		_, _ = w.Write([]byte(`{"configs":[{"name":"20GB SSD","description":"Small","prices":{"price_per_month":5.0,"price_per_hour":0.01},"region":{"name":"HN-Cloud01","description":"HN"},"memory_mb":1024,"vcpus":1,"root_gb":20,"flavor_group":{"name":"Standard","description":"Std","max_ip_addon":6}}]}`))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -43,7 +43,7 @@ func TestGetInstanceOptions(t *testing.T) {
 func TestGetInstanceOptions_HTTPError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"detail":"Invalid Token."}`))
+		_, _ = w.Write([]byte(`{"detail":"Invalid Token."}`))
 	}))
 	t.Cleanup(srv.Close)
 	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})

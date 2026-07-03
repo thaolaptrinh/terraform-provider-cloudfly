@@ -21,7 +21,7 @@ func TestGetPrice(t *testing.T) {
 			t.Errorf("body missing flavor_type: %s", body)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"price_per_month":5.0,"price_per_hour":0.01}`))
+		_, _ = w.Write([]byte(`{"price_per_month":5.0,"price_per_hour":0.01}`))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -45,7 +45,7 @@ func TestGetPrice(t *testing.T) {
 func TestGetPrice_HTTPError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"detail":"Invalid Token."}`))
+		_, _ = w.Write([]byte(`{"detail":"Invalid Token."}`))
 	}))
 	t.Cleanup(srv.Close)
 	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})

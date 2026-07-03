@@ -4,20 +4,10 @@
 package provider
 
 import (
-	"context"
 	"testing"
 
 	"github.com/thaolaptrinh/terraform-provider-cloudfly/internal/client"
 )
-
-type fakeInstanceOptionsAPI struct {
-	opts []client.InstanceOption
-	err  error
-}
-
-func (f *fakeInstanceOptionsAPI) GetInstanceOptions(_ context.Context) ([]client.InstanceOption, error) {
-	return f.opts, f.err
-}
 
 func TestToOptionModels(t *testing.T) {
 	in := []client.InstanceOption{{

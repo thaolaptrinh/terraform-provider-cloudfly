@@ -4,20 +4,10 @@
 package provider
 
 import (
-	"context"
 	"testing"
 
 	"github.com/thaolaptrinh/terraform-provider-cloudfly/internal/client"
 )
-
-type fakeRegionsAPI struct {
-	regions []client.Region
-	err     error
-}
-
-func (f *fakeRegionsAPI) ListRegions(ctx context.Context) ([]client.Region, error) {
-	return f.regions, f.err
-}
 
 func TestToRegionModels(t *testing.T) {
 	in := []client.Region{{ID: "r1", Name: "HN", Description: "d"}}

@@ -21,12 +21,12 @@ func TestCreateInstance_PollsSearchByName(t *testing.T) {
 		case r.Method == http.MethodPost && r.URL.Path == "/instances":
 			atomic.AddInt32(&postCalls, 1)
 			w.WriteHeader(http.StatusCreated)
-			w.Write([]byte(`{"detail":"The server has been successfully initialized. Please wait a moment"}`))
+			_, _ = w.Write([]byte(`{"detail":"The server has been successfully initialized. Please wait a moment"}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/instances":
 			if r.URL.Query().Get("search") != "myinst" {
 				t.Errorf("expected search=myinst, got %q", r.URL.Query().Get("search"))
 			}
-			w.Write([]byte(`{"count":1,"results":[{"id":"inst-123","display_name":"myinst","status":"BUILDING"}]}`))
+			_, _ = w.Write([]byte(`{"count":1,"results":[{"id":"inst-123","display_name":"myinst","status":"BUILDING"}]}`))
 		default:
 			t.Errorf("unexpected: %s %s", r.Method, r.URL)
 		}
@@ -52,7 +52,7 @@ func TestGetInstance(t *testing.T) {
 			t.Errorf("unexpected: %s %s", r.Method, r.URL.Path)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"id":"i9","display_name":"dn","name":"n","status":"ACTIVE","region":"HN-Cloud01","accessIPv4":"1.2.3.4","created":"2026-01-01T00:00:00Z"}`))
+		_, _ = w.Write([]byte(`{"id":"i9","display_name":"dn","name":"n","status":"ACTIVE","region":"HN-Cloud01","accessIPv4":"1.2.3.4","created":"2026-01-01T00:00:00Z"}`))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -72,7 +72,7 @@ func TestDeleteInstance(t *testing.T) {
 			t.Errorf("unexpected: %s %s", r.Method, r.URL.Path)
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"detail":"Delete instance is in progress, please wait a moment"}`))
+		_, _ = w.Write([]byte(`{"detail":"Delete instance is in progress, please wait a moment"}`))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -88,10 +88,10 @@ func TestWaitInstanceActive_PollsUntilActive(t *testing.T) {
 		n := atomic.AddInt32(&calls, 1)
 		w.Header().Set("Content-Type", "application/json")
 		if n < 3 {
-			w.Write([]byte(`{"id":"i1","status":"BUILDING"}`))
+			_, _ = w.Write([]byte(`{"id":"i1","status":"BUILDING"}`))
 			return
 		}
-		w.Write([]byte(`{"id":"i1","status":"ACTIVE"}`))
+		_, _ = w.Write([]byte(`{"id":"i1","status":"ACTIVE"}`))
 	}))
 	t.Cleanup(srv.Close)
 	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
@@ -105,7 +105,7 @@ func TestWaitInstanceActive_PollsUntilActive(t *testing.T) {
 
 func TestWaitInstanceActive_Timeout(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"id":"i1","status":"BUILDING"}`))
+		_, _ = w.Write([]byte(`{"id":"i1","status":"BUILDING"}`))
 	}))
 	t.Cleanup(srv.Close)
 	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
@@ -121,11 +121,11 @@ func TestWaitInstanceDeleted_PollsUntil404(t *testing.T) {
 		n := atomic.AddInt32(&calls, 1)
 		if n < 2 {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"id":"i1","status":"ACTIVE"}`))
+			_, _ = w.Write([]byte(`{"id":"i1","status":"ACTIVE"}`))
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"detail":"not found"}`))
+		_, _ = w.Write([]byte(`{"detail":"not found"}`))
 	}))
 	t.Cleanup(srv.Close)
 	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
