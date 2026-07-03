@@ -26,14 +26,14 @@ The roadmap is organized around Terraform resources and capabilities rather than
 
 ## Resources
 
-- [ ] `cloudfly_instance`
+- [x] `cloudfly_instance`
 
 ## Data Sources
 
-- [ ] `cloudfly_regions`
-- [ ] `cloudfly_instance_options`
-- [ ] `cloudfly_instance_price`
-- [ ] `cloudfly_ssh_keys`
+- [x] `cloudfly_regions`
+- [x] `cloudfly_instance_options`
+- [x] `cloudfly_instance_price`
+- [x] `cloudfly_ssh_keys`
 
 ---
 
