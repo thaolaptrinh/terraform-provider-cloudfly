@@ -58,6 +58,21 @@ type InstanceResourceModel struct {
 	Status           types.String `tfsdk:"status"`
 	AccessIPv4       types.String `tfsdk:"access_ipv4"`
 	Created          types.String `tfsdk:"created"`
+
+	PowerState       types.String `tfsdk:"power_state"`
+	Reboot           types.Bool   `tfsdk:"reboot"`
+	AdminPassword    types.String `tfsdk:"admin_password"`
+	ReverseDNS       types.String `tfsdk:"reverse_dns"`
+	SecurityGroupIDs types.List   `tfsdk:"security_group_ids"`
+
+	AccessIPv6            types.String `tfsdk:"access_ipv6"`
+	Username              types.String `tfsdk:"username"`
+	TaskState             types.String `tfsdk:"task_state"`
+	BackupServer          types.String `tfsdk:"backup_server"`
+	StoppedByCloudfly     types.Bool   `tfsdk:"stopped_by_cloudfly"`
+	CurrentMonthTraffic   types.String `tfsdk:"current_month_traffic"`
+	CurrentMonthTrafficMB types.String `tfsdk:"current_month_traffic_mb"`
+	RemainMaxIPAddon      types.String `tfsdk:"remain_max_ip_addon"`
 }
 
 func NewInstanceResource() resource.Resource { return &instanceResource{} }
@@ -234,4 +249,22 @@ func instanceToModel(inst *client.Instance, m *InstanceResourceModel) {
 	if inst.Flavor.RootGB > 0 {
 		m.Disk = types.Int64Value(int64(inst.Flavor.RootGB))
 	}
+
+	switch inst.Status {
+	case "ACTIVE":
+		m.PowerState = types.StringValue("running")
+	case "SHUTOFF", "STOPPED":
+		m.PowerState = types.StringValue("stopped")
+	default:
+		m.PowerState = types.StringValue("stopped")
+	}
+
+	m.AccessIPv6 = types.StringValue(inst.AccessIPv6)
+	m.Username = types.StringValue(inst.Username)
+	m.TaskState = types.StringValue(inst.TaskState)
+	m.BackupServer = types.StringValue(inst.BackupServer)
+	m.StoppedByCloudfly = types.BoolValue(inst.StoppedByCloudfly)
+	m.CurrentMonthTraffic = types.StringValue(inst.CurrentMonthTraffic)
+	m.CurrentMonthTrafficMB = types.StringValue(inst.CurrentMonthTrafficMB)
+	m.RemainMaxIPAddon = types.StringValue(inst.RemainMaxIPAddon)
 }

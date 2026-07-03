@@ -26,15 +26,24 @@ type InstanceCreate struct {
 }
 
 type Instance struct {
-	ID          string    `json:"id"`
-	DisplayName string    `json:"display_name"`
-	Name        string    `json:"name"`
-	Status      string    `json:"status"`
-	Region      RegionRef `json:"region"`
-	AccessIPv4  string    `json:"accessIPv4"`
-	Created     string    `json:"created"`
-	Flavor      Flavor    `json:"flavor"`
-	Image       Image     `json:"image"`
+	ID                    string    `json:"id"`
+	DisplayName           string    `json:"display_name"`
+	Name                  string    `json:"name"`
+	Status                string    `json:"status"`
+	Region                RegionRef `json:"region"`
+	AccessIPv4            string    `json:"accessIPv4"`
+	AccessIPv6            string    `json:"accessIPv6"`
+	Created               string    `json:"created"`
+	Flavor                Flavor    `json:"flavor"`
+	Image                 Image     `json:"image"`
+	Username              string    `json:"username"`
+	TaskState             string    `json:"task_state"`
+	BackupServer          string    `json:"backup_server"`
+	HostName              string    `json:"host_name"`
+	StoppedByCloudfly     bool      `json:"stopped_by_cloudfly"`
+	CurrentMonthTraffic   string    `json:"current_month_traffic"`
+	CurrentMonthTrafficMB string    `json:"current_month_traffic_mb"`
+	RemainMaxIPAddon      string    `json:"remain_max_ip_addon"`
 }
 
 // RegionRef is the nested region object returned by the instances list/detail
