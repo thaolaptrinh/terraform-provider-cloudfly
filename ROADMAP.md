@@ -43,39 +43,39 @@ Implement CloudFly instance capabilities using Terraform resource lifecycle oper
 
 ### Lifecycle
 
-- [ ] Create
-- [ ] Read
-- [ ] Update
-- [ ] Delete
-- [ ] Import
+- [x] Create
+- [x] Read
+- [x] Update
+- [x] Delete
+- [x] Import
 
 ### Operations
 
-- [ ] Power management
-- [ ] Rebuild
-- [ ] Rename
-- [ ] Password management
+- [x] Power management
+- [ ] Rebuild (API requires image_id — no list-images endpoint available)
+- [x] Rename
+- [x] Password management
 
 ### Networking
 
-- [ ] Network interface management
-- [ ] IPv6 configuration
-- [ ] Reverse DNS
+- [ ] Network interface management (list interfaces endpoint commented out in API spec)
+- [ ] IPv6 configuration (available at create time via RequiresReplace; post-create niche)
+- [x] Reverse DNS
 
 ### Security
 
-- [ ] Security group management
+- [x] Security group management
 
 ### Backup
 
-- [ ] Snapshot management
-- [ ] Backup management
+- [x] Snapshot management
+- [ ] Backup management (backup schedule create endpoint commented out; read-only data source available)
 
 ### Monitoring
 
-- [ ] Metrics
-- [ ] Usage history
-- [ ] Usage summary
+- [x] Metrics
+- [x] Usage history
+- [x] Usage summary
 
 ---
 
