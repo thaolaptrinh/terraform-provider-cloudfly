@@ -16,7 +16,7 @@ The roadmap is organized around Terraform resources and capabilities rather than
 - [x] Diagnostics
 - [x] Logging
 - [x] Documentation generation
-- [ ] Acceptance testing
+- [x] Acceptance testing
 - [x] CI/CD
 - [x] Automated releases
 
