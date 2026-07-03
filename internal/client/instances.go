@@ -72,10 +72,6 @@ type securityGroupsResponse struct {
 	Data []SecurityGroup `json:"data"`
 }
 
-type startStopResponse struct {
-	Detail string `json:"detail"`
-}
-
 type rebootRequest struct {
 	RebootType string `json:"reboot_type"`
 }
