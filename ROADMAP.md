@@ -81,10 +81,10 @@ Implement CloudFly instance capabilities using Terraform resource lifecycle oper
 
 # Phase 4 — Documentation
 
-- [ ] Provider documentation
-- [ ] Resource documentation
-- [ ] Data source documentation
-- [ ] Example configurations
+- [x] Provider documentation
+- [x] Resource documentation
+- [x] Data source documentation
+- [x] Example configurations
 
 ---
 
