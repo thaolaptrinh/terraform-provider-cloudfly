@@ -5,6 +5,7 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
@@ -36,6 +37,17 @@ type InstancesAPI interface {
 	DeleteInstance(ctx context.Context, id string) error
 	WaitInstanceActive(ctx context.Context, id string, timeout, interval time.Duration) error
 	WaitInstanceDeleted(ctx context.Context, id string, timeout, interval time.Duration) error
+
+	StartInstance(ctx context.Context, id string) error
+	StopInstance(ctx context.Context, id string) error
+	RebootInstance(ctx context.Context, id string) error
+	RenameInstance(ctx context.Context, id string, name string) error
+	ChangePassword(ctx context.Context, id string, password string) error
+	UpdateReverseDNS(ctx context.Context, id string, dns string, ip string) error
+	AddSecurityGroup(ctx context.Context, id string, sgID string) error
+	RemoveSecurityGroup(ctx context.Context, id string, sgID string) error
+	ListSecurityGroups(ctx context.Context, id string) ([]client.SecurityGroup, error)
+	WaitInstanceStopped(ctx context.Context, id string, timeout, interval time.Duration) error
 }
 
 type instanceResource struct {
@@ -58,6 +70,21 @@ type InstanceResourceModel struct {
 	Status           types.String `tfsdk:"status"`
 	AccessIPv4       types.String `tfsdk:"access_ipv4"`
 	Created          types.String `tfsdk:"created"`
+
+	PowerState       types.String `tfsdk:"power_state"`
+	Reboot           types.Bool   `tfsdk:"reboot"`
+	AdminPassword    types.String `tfsdk:"admin_password"`
+	ReverseDNS       types.String `tfsdk:"reverse_dns"`
+	SecurityGroupIDs types.List   `tfsdk:"security_group_ids"`
+
+	AccessIPv6            types.String `tfsdk:"access_ipv6"`
+	Username              types.String `tfsdk:"username"`
+	TaskState             types.String `tfsdk:"task_state"`
+	BackupServer          types.String `tfsdk:"backup_server"`
+	StoppedByCloudfly     types.Bool   `tfsdk:"stopped_by_cloudfly"`
+	CurrentMonthTraffic   types.String `tfsdk:"current_month_traffic"`
+	CurrentMonthTrafficMB types.String `tfsdk:"current_month_traffic_mb"`
+	RemainMaxIPAddon      types.String `tfsdk:"remain_max_ip_addon"`
 }
 
 func NewInstanceResource() resource.Resource { return &instanceResource{} }
@@ -71,7 +98,7 @@ func (r *instanceResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 		MarkdownDescription: "Manages a CloudFly compute instance.",
 		Attributes: map[string]schema.Attribute{
 			"id":   schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
-			"name": schema.StringAttribute{Optional: true, PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()}},
+			"name": schema.StringAttribute{Optional: true},
 			"region": schema.StringAttribute{
 				Required:      true,
 				Validators:    []validator.String{stringvalidator.OneOf("CLOUD-HN02", "HN-Cloud01")},
@@ -90,9 +117,43 @@ func (r *instanceResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 			"enable_private_network": schema.BoolAttribute{Optional: true, PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()}},
 			"auto_backup":            schema.BoolAttribute{Optional: true, PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()}},
 			"ssh_key_ids":            schema.ListAttribute{ElementType: types.Int64Type, Optional: true, PlanModifiers: []planmodifier.List{listplanmodifier.RequiresReplace()}},
-			"status":                 schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
-			"access_ipv4":            schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
-			"created":                schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
+			"status":                 schema.StringAttribute{Computed: true},
+			"access_ipv4":            schema.StringAttribute{Computed: true},
+			"created":                schema.StringAttribute{Computed: true},
+
+			"power_state": schema.StringAttribute{
+				MarkdownDescription: "Desired power state of the instance. Valid values: `running`, `stopped`.",
+				Optional:            true,
+				Computed:            true,
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"reboot": schema.BoolAttribute{
+				MarkdownDescription: "Set to `true` to reboot the instance. Resets to `null` after the reboot completes.",
+				Optional:            true,
+			},
+			"admin_password": schema.StringAttribute{
+				MarkdownDescription: "New administrator password for the instance.",
+				Optional:            true,
+				Sensitive:           true,
+			},
+			"reverse_dns": schema.StringAttribute{
+				MarkdownDescription: "Reverse DNS entry for the instance's primary IPv4 address.",
+				Optional:            true,
+			},
+			"security_group_ids": schema.ListAttribute{
+				MarkdownDescription: "Security group IDs to assign to the instance.",
+				ElementType:         types.StringType,
+				Optional:            true,
+			},
+
+			"access_ipv6":              schema.StringAttribute{Computed: true},
+			"username":                 schema.StringAttribute{Computed: true},
+			"task_state":               schema.StringAttribute{Computed: true},
+			"backup_server":            schema.StringAttribute{Computed: true},
+			"stopped_by_cloudfly":      schema.BoolAttribute{Computed: true},
+			"current_month_traffic":    schema.StringAttribute{Computed: true},
+			"current_month_traffic_mb": schema.StringAttribute{Computed: true},
+			"remain_max_ip_addon":      schema.StringAttribute{Computed: true},
 		},
 	}
 }
@@ -153,9 +214,133 @@ func (r *instanceResource) Read(ctx context.Context, req resource.ReadRequest, r
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
-func (r *instanceResource) Update(_ context.Context, _ resource.UpdateRequest, resp *resource.UpdateResponse) {
-	// All attributes use RequiresReplace; framework should never call Update.
-	resp.Diagnostics.AddError("Update not supported", "cloudfly_instance replaces on every change; Update should not be reached")
+func (r *instanceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var state, plan InstanceResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if err := r.applyUpdate(ctx, &state, &plan); err != nil {
+		resp.Diagnostics.AddError("Failed to update instance", err.Error())
+		return
+	}
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+}
+
+// applyUpdate contains the update decision logic: power state, reboot,
+// password, rename, reverse DNS and security-group diff. It mutates plan
+// in place. Pure enough to unit-test without a live Terraform request.
+func (r *instanceResource) applyUpdate(ctx context.Context, state, plan *InstanceResourceModel) error {
+	id := state.ID.ValueString()
+
+	if !state.PowerState.Equal(plan.PowerState) {
+		switch plan.PowerState.ValueString() {
+		case "running":
+			if err := r.api.StartInstance(ctx, id); err != nil {
+				return fmt.Errorf("start instance: %w", err)
+			}
+			if err := r.api.WaitInstanceActive(ctx, id, instanceCreateTimeout, instancePollInterval); err != nil {
+				return fmt.Errorf("wait active after start: %w", err)
+			}
+		case "stopped":
+			if err := r.api.StopInstance(ctx, id); err != nil {
+				return fmt.Errorf("stop instance: %w", err)
+			}
+			if err := r.api.WaitInstanceStopped(ctx, id, instanceCreateTimeout, instancePollInterval); err != nil {
+				return fmt.Errorf("wait stopped: %w", err)
+			}
+		default:
+			return fmt.Errorf("invalid power_state %q: must be running or stopped", plan.PowerState.ValueString())
+		}
+	}
+
+	if plan.Reboot.ValueBool() && !state.Reboot.ValueBool() {
+		if err := r.api.RebootInstance(ctx, id); err != nil {
+			return fmt.Errorf("reboot instance: %w", err)
+		}
+		if err := r.api.WaitInstanceActive(ctx, id, instanceCreateTimeout, instancePollInterval); err != nil {
+			return fmt.Errorf("wait active after reboot: %w", err)
+		}
+	}
+
+	if !plan.AdminPassword.IsNull() && !plan.AdminPassword.IsUnknown() && plan.AdminPassword.ValueString() != "" {
+		if !state.AdminPassword.Equal(plan.AdminPassword) {
+			if err := r.api.ChangePassword(ctx, id, plan.AdminPassword.ValueString()); err != nil {
+				return fmt.Errorf("change password: %w", err)
+			}
+		}
+	}
+
+	if !state.Name.Equal(plan.Name) {
+		if err := r.api.RenameInstance(ctx, id, plan.Name.ValueString()); err != nil {
+			return fmt.Errorf("rename instance: %w", err)
+		}
+	}
+
+	if !state.ReverseDNS.Equal(plan.ReverseDNS) {
+		newDNS := plan.ReverseDNS.ValueString()
+		if newDNS == "" {
+			// API rejects blank reverse_dns; skip when user clears it.
+		} else if err := r.api.UpdateReverseDNS(ctx, id, newDNS, state.AccessIPv4.ValueString()); err != nil {
+			return fmt.Errorf("update reverse DNS: %w", err)
+		}
+	}
+
+	if !state.SecurityGroupIDs.Equal(plan.SecurityGroupIDs) {
+		if err := r.reconcileSecurityGroups(ctx, id, plan.SecurityGroupIDs); err != nil {
+			return err
+		}
+	}
+
+	inst, err := r.api.GetInstance(ctx, id)
+	if err != nil {
+		return fmt.Errorf("read instance after update: %w", err)
+	}
+	instanceToModel(inst, plan)
+	return nil
+}
+
+// reconcileSecurityGroups brings the instance's attached security groups
+// in line with the plan list.
+func (r *instanceResource) reconcileSecurityGroups(ctx context.Context, id string, planList types.List) error {
+	currentSGs, err := r.api.ListSecurityGroups(ctx, id)
+	if err != nil {
+		return fmt.Errorf("list security groups: %w", err)
+	}
+
+	currentIDs := make(map[string]bool, len(currentSGs))
+	for _, sg := range currentSGs {
+		currentIDs[sg.ID] = true
+	}
+
+	planIDs := make(map[string]bool)
+	if !planList.IsNull() && !planList.IsUnknown() {
+		var ids []string
+		if diags := planList.ElementsAs(ctx, &ids, false); diags.HasError() {
+			return fmt.Errorf("decode security_group_ids: %v", diags.Errors())
+		}
+		for _, sgID := range ids {
+			planIDs[sgID] = true
+		}
+	}
+
+	for _, sg := range currentSGs {
+		if !planIDs[sg.ID] {
+			if err := r.api.RemoveSecurityGroup(ctx, id, sg.ID); err != nil {
+				return fmt.Errorf("remove security group %s: %w", sg.ID, err)
+			}
+		}
+	}
+
+	for sgID := range planIDs {
+		if !currentIDs[sgID] {
+			if err := r.api.AddSecurityGroup(ctx, id, sgID); err != nil {
+				return fmt.Errorf("add security group %s: %w", sgID, err)
+			}
+		}
+	}
+	return nil
 }
 
 func (r *instanceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -234,4 +419,22 @@ func instanceToModel(inst *client.Instance, m *InstanceResourceModel) {
 	if inst.Flavor.RootGB > 0 {
 		m.Disk = types.Int64Value(int64(inst.Flavor.RootGB))
 	}
+
+	switch inst.Status {
+	case "ACTIVE":
+		m.PowerState = types.StringValue("running")
+	case "SHUTOFF", "STOPPED":
+		m.PowerState = types.StringValue("stopped")
+	default:
+		m.PowerState = types.StringValue("stopped")
+	}
+
+	m.AccessIPv6 = types.StringValue(inst.AccessIPv6)
+	m.Username = types.StringValue(inst.Username)
+	m.TaskState = types.StringValue(inst.TaskState)
+	m.BackupServer = types.StringValue(string(inst.BackupServer))
+	m.StoppedByCloudfly = types.BoolValue(inst.StoppedByCloudfly)
+	m.CurrentMonthTraffic = types.StringValue(string(inst.CurrentMonthTraffic))
+	m.CurrentMonthTrafficMB = types.StringValue(string(inst.CurrentMonthTrafficMB))
+	m.RemainMaxIPAddon = types.StringValue(string(inst.RemainMaxIPAddon))
 }

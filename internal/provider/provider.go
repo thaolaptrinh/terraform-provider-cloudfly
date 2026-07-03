@@ -82,6 +82,7 @@ func (p *CloudFlyProvider) Configure(ctx context.Context, req provider.Configure
 func (p *CloudFlyProvider) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		NewInstanceResource,
+		NewSnapshotResource,
 	}
 }
 
@@ -91,6 +92,11 @@ func (p *CloudFlyProvider) DataSources(ctx context.Context) []func() datasource.
 		NewSSHKeysDataSource,
 		NewInstanceOptionsDataSource,
 		NewInstancePriceDataSource,
+		NewInstanceMetricsDataSource,
+		NewInstanceUsageDataSource,
+		NewUsageSummaryDataSource,
+		NewBackupSchedulesDataSource,
+		NewImagesDataSource,
 	}
 }
 
