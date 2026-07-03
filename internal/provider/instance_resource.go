@@ -36,6 +36,17 @@ type InstancesAPI interface {
 	DeleteInstance(ctx context.Context, id string) error
 	WaitInstanceActive(ctx context.Context, id string, timeout, interval time.Duration) error
 	WaitInstanceDeleted(ctx context.Context, id string, timeout, interval time.Duration) error
+
+	StartInstance(ctx context.Context, id string) error
+	StopInstance(ctx context.Context, id string) error
+	RebootInstance(ctx context.Context, id string) error
+	RenameInstance(ctx context.Context, id string, name string) error
+	ChangePassword(ctx context.Context, id string, password string) error
+	UpdateReverseDNS(ctx context.Context, id string, dns string, ip string) error
+	AddSecurityGroup(ctx context.Context, id string, sgID string) error
+	RemoveSecurityGroup(ctx context.Context, id string, sgID string) error
+	ListSecurityGroups(ctx context.Context, id string) ([]client.SecurityGroup, error)
+	WaitInstanceStopped(ctx context.Context, id string, timeout, interval time.Duration) error
 }
 
 type instanceResource struct {
@@ -86,7 +97,7 @@ func (r *instanceResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 		MarkdownDescription: "Manages a CloudFly compute instance.",
 		Attributes: map[string]schema.Attribute{
 			"id":   schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
-			"name": schema.StringAttribute{Optional: true, PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()}},
+			"name": schema.StringAttribute{Optional: true},
 			"region": schema.StringAttribute{
 				Required:      true,
 				Validators:    []validator.String{stringvalidator.OneOf("CLOUD-HN02", "HN-Cloud01")},
@@ -108,6 +119,40 @@ func (r *instanceResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 			"status":                 schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
 			"access_ipv4":            schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
 			"created":                schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
+
+			"power_state": schema.StringAttribute{
+				MarkdownDescription: "Desired power state of the instance. Valid values: `running`, `stopped`.",
+				Optional:            true,
+				Computed:            true,
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"reboot": schema.BoolAttribute{
+				MarkdownDescription: "Set to `true` to reboot the instance. Resets to `null` after the reboot completes.",
+				Optional:            true,
+			},
+			"admin_password": schema.StringAttribute{
+				MarkdownDescription: "New administrator password for the instance.",
+				Optional:            true,
+				Sensitive:           true,
+			},
+			"reverse_dns": schema.StringAttribute{
+				MarkdownDescription: "Reverse DNS entry for the instance's primary IPv4 address.",
+				Optional:            true,
+			},
+			"security_group_ids": schema.ListAttribute{
+				MarkdownDescription: "Security group IDs to assign to the instance.",
+				ElementType:         types.StringType,
+				Optional:            true,
+			},
+
+			"access_ipv6":              schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
+			"username":                 schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
+			"task_state":               schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
+			"backup_server":            schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
+			"stopped_by_cloudfly":      schema.BoolAttribute{Computed: true},
+			"current_month_traffic":    schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
+			"current_month_traffic_mb": schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
+			"remain_max_ip_addon":      schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
 		},
 	}
 }
@@ -168,9 +213,125 @@ func (r *instanceResource) Read(ctx context.Context, req resource.ReadRequest, r
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
-func (r *instanceResource) Update(_ context.Context, _ resource.UpdateRequest, resp *resource.UpdateResponse) {
-	// All attributes use RequiresReplace; framework should never call Update.
-	resp.Diagnostics.AddError("Update not supported", "cloudfly_instance replaces on every change; Update should not be reached")
+func (r *instanceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var state, plan InstanceResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	id := state.ID.ValueString()
+
+	if !state.PowerState.Equal(plan.PowerState) {
+		switch plan.PowerState.ValueString() {
+		case "running":
+			if err := r.api.StartInstance(ctx, id); err != nil {
+				resp.Diagnostics.AddError("Failed to start instance", err.Error())
+				return
+			}
+			if err := r.api.WaitInstanceActive(ctx, id, instanceCreateTimeout, instancePollInterval); err != nil {
+				resp.Diagnostics.AddError("Instance did not become active after start", err.Error())
+				return
+			}
+		case "stopped":
+			if err := r.api.StopInstance(ctx, id); err != nil {
+				resp.Diagnostics.AddError("Failed to stop instance", err.Error())
+				return
+			}
+			if err := r.api.WaitInstanceStopped(ctx, id, instanceCreateTimeout, instancePollInterval); err != nil {
+				resp.Diagnostics.AddError("Instance did not stop in time", err.Error())
+				return
+			}
+		}
+	}
+
+	if plan.Reboot.ValueBool() && !state.Reboot.ValueBool() {
+		if err := r.api.RebootInstance(ctx, id); err != nil {
+			resp.Diagnostics.AddError("Failed to reboot instance", err.Error())
+			return
+		}
+		if err := r.api.WaitInstanceActive(ctx, id, instanceCreateTimeout, instancePollInterval); err != nil {
+			resp.Diagnostics.AddError("Instance did not become active after reboot", err.Error())
+			return
+		}
+	}
+
+	if !plan.AdminPassword.IsNull() && !plan.AdminPassword.IsUnknown() && plan.AdminPassword.ValueString() != "" {
+		if !state.AdminPassword.Equal(plan.AdminPassword) {
+			if err := r.api.ChangePassword(ctx, id, plan.AdminPassword.ValueString()); err != nil {
+				resp.Diagnostics.AddError("Failed to change password", err.Error())
+				return
+			}
+		}
+	}
+
+	if !state.Name.Equal(plan.Name) {
+		if err := r.api.RenameInstance(ctx, id, plan.Name.ValueString()); err != nil {
+			resp.Diagnostics.AddError("Failed to rename instance", err.Error())
+			return
+		}
+	}
+
+	if !state.ReverseDNS.Equal(plan.ReverseDNS) {
+		if err := r.api.UpdateReverseDNS(ctx, id, plan.ReverseDNS.ValueString(), state.AccessIPv4.ValueString()); err != nil {
+			resp.Diagnostics.AddError("Failed to update reverse DNS", err.Error())
+			return
+		}
+	}
+
+	if !state.SecurityGroupIDs.Equal(plan.SecurityGroupIDs) {
+		currentSGs, err := r.api.ListSecurityGroups(ctx, id)
+		if err != nil {
+			resp.Diagnostics.AddError("Failed to list security groups", err.Error())
+			return
+		}
+
+		currentIDs := make(map[string]bool)
+		for _, sg := range currentSGs {
+			currentIDs[sg.ID] = true
+		}
+
+		planIDs := make(map[string]bool)
+		if !plan.SecurityGroupIDs.IsNull() && !plan.SecurityGroupIDs.IsUnknown() {
+			var planList []string
+			diags := plan.SecurityGroupIDs.ElementsAs(ctx, &planList, false)
+			resp.Diagnostics.Append(diags...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+			for _, sgID := range planList {
+				planIDs[sgID] = true
+			}
+		}
+
+		for _, sg := range currentSGs {
+			if !planIDs[sg.ID] {
+				if err := r.api.RemoveSecurityGroup(ctx, id, sg.ID); err != nil {
+					resp.Diagnostics.AddError("Failed to remove security group", err.Error())
+					return
+				}
+			}
+		}
+
+		for sgID := range planIDs {
+			if !currentIDs[sgID] {
+				if err := r.api.AddSecurityGroup(ctx, id, sgID); err != nil {
+					resp.Diagnostics.AddError("Failed to add security group", err.Error())
+					return
+				}
+			}
+		}
+	}
+
+	inst, err := r.api.GetInstance(ctx, id)
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to read instance after update", err.Error())
+		return
+	}
+	instanceToModel(inst, &plan)
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
 func (r *instanceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
