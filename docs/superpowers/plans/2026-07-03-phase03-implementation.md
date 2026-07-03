@@ -15,9 +15,11 @@
 **Files:**
 - Modify: `internal/client/instances.go`
 
+> **Note:** All line numbers in this plan are approximate and reference the current file state. When executing, use content-based search to find the right insertion points.
+
 - [ ] **Step 1: Add interface types**
 
-Insert after `SecurityGroup` struct (after line 99):
+Insert after `SecurityGroup` struct (search for `type SecurityGroup struct`):
 
 ```go
 type InterfaceItem struct {
@@ -285,7 +287,7 @@ git commit -m "feat(client): add backup schedule CRUD, rename GetBackupSchedules
 
 - [ ] **Step 1: Remove RequiresReplace from enable_ipv6 schema**
 
-In `instance_resource.go`, line 116, change:
+Search for `"enable_ipv6"` in `instance_resource.go`, change:
 
 ```go
 "enable_ipv6": schema.BoolAttribute{Optional: true, PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()}},
@@ -299,7 +301,7 @@ to:
 
 - [ ] **Step 2: Add EnableIPv6Range to InstancesAPI interface**
 
-In `instance_resource.go`, add after `WaitInstanceStopped` line in `InstancesAPI` interface (line 50):
+In `InstancesAPI` interface, add after `WaitInstanceStopped` line:
 
 ```go
 	EnableIPv6Range(ctx context.Context, id string) error
@@ -307,7 +309,7 @@ In `instance_resource.go`, add after `WaitInstanceStopped` line in `InstancesAPI
 
 - [ ] **Step 3: Add IPv6 update logic to applyUpdate**
 
-In `instance_resource.go`, insert after the reverse DNS block (after line 288), before security groups:
+Search for `!state.ReverseDNS.Equal` block in `applyUpdate`. Insert after that block, before the security groups block:
 
 ```go
 	if !state.EnableIPv6.Equal(plan.EnableIPv6) {
@@ -321,7 +323,7 @@ In `instance_resource.go`, insert after the reverse DNS block (after line 288), 
 
 - [ ] **Step 4: Add mock fields for EnableIPv6Range**
 
-In `instance_resource_mocks_test.go`, add to `mockInstancesAPI` struct after line 37:
+Search for the end of `mockInstancesAPI` field block in `instance_resource_mocks_test.go` (find `waitActiveErr` field), add after:
 
 ```go
 	enableIPv6RangeCalls  int
@@ -439,7 +441,7 @@ git commit -m "test: add IPv6 enable/disable unit tests"
 
 - [ ] **Step 1: Add network_ids to schema**
 
-Insert after `security_group_ids` schema block (after line 147):
+Search for `"security_group_ids"` schema block. Insert after it:
 
 ```go
 			"network_ids": schema.ListAttribute{
@@ -451,7 +453,7 @@ Insert after `security_group_ids` schema block (after line 147):
 
 - [ ] **Step 2: Add network_ids to model**
 
-In `InstanceResourceModel` struct, after `SecurityGroupIDs` (line 78):
+Search for `SecurityGroupIDs` in `InstanceResourceModel` struct. Add after it:
 
 ```go
 	NetworkIDs types.List `tfsdk:"network_ids"`
@@ -469,7 +471,7 @@ In `InstancesAPI` interface, after `ListSecurityGroups`:
 
 - [ ] **Step 4: Add reconcileNetworks call to applyUpdate**
 
-Insert after the security group reconcile block (after line 294):
+Search for `reconcileSecurityGroups` call in `applyUpdate`. Insert after that block:
 
 ```go
 	if !state.NetworkIDs.Equal(plan.NetworkIDs) {
@@ -481,7 +483,7 @@ Insert after the security group reconcile block (after line 294):
 
 - [ ] **Step 5: Add reconcileNetworks method**
 
-Insert after `reconcileSecurityGroups` method (after line 344):
+Search for the end of `reconcileSecurityGroups` method (after its closing `}`). Insert after it:
 
 ```go
 // reconcileNetworks brings the instance's attached networks in line with the
@@ -1007,7 +1009,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/thaolaptrinh/terraform-provider-cloudfly/internal/client"
 )
 
@@ -1121,11 +1122,11 @@ func TestParseScheduleID_Invalid(t *testing.T) {
 	}
 }
 
-func TestBackupScheduleToModel_PreservesUserType(t *testing.T) {
-	m := &BackupScheduleResourceModel{BackupType: types.StringValue("weekly")}
-	backupScheduleToModel(&client.BackupSchedule{ID: 1, Instance: "i1", BackupType: "weekly"}, m)
-	if m.ID.ValueString() != "1" {
-		t.Fatalf("id=%q, want 1", m.ID.ValueString())
+func TestBackupScheduleToModel_ID(t *testing.T) {
+	m := &BackupScheduleResourceModel{}
+	backupScheduleToModel(&client.BackupSchedule{ID: 42, Instance: "i1", BackupType: "weekly"}, m)
+	if m.ID.ValueString() != "42" {
+		t.Fatalf("id=%q, want 42", m.ID.ValueString())
 	}
 }
 ```
@@ -1223,6 +1224,62 @@ func testAccPhase3NetworkIDsConfig() string {
 resource "cloudfly_instance" "test" {
   name        = "tf-acc-networks"
   network_ids = []
+%s
+}
+`, phase3BaseAttrs)
+}
+```
+
+- [ ] **Step 3: Add acceptance test — IPv6 enable (conditional)**
+
+Insert after network IDs test:
+
+```go
+// TestAccPhase3_IPv6Enable creates an instance and enables IPv6 post-create.
+// Skipped unless CLOUDFLY_ACC_CREATE=1 AND CLOUDFLY_ACC_IPV6=1 (IPv6 costs).
+func TestAccPhase3_IPv6Enable(t *testing.T) {
+	testAccPreCheck(t)
+	if os.Getenv("CLOUDFLY_ACC_IPV6") == "" {
+		t.Skip("CLOUDFLY_ACC_IPV6 not set; skipping IPv6 enable test")
+	}
+	requireAccCreate(t)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Create without IPv6
+			{
+				Config: testAccPhase3NoIPv6Config(),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("cloudfly_instance.test", "enable_ipv6", "false"),
+				),
+			},
+			// Enable IPv6
+			{
+				Config: testAccPhase3EnableIPv6Config(),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("cloudfly_instance.test", "enable_ipv6", "true"),
+				),
+			},
+		},
+	})
+}
+
+func testAccPhase3NoIPv6Config() string {
+	return fmt.Sprintf(`
+resource "cloudfly_instance" "test" {
+  name        = "tf-acc-ipv6"
+  enable_ipv6 = false
+%s
+}
+`, phase3BaseAttrs)
+}
+
+func testAccPhase3EnableIPv6Config() string {
+	return fmt.Sprintf(`
+resource "cloudfly_instance" "test" {
+  name        = "tf-acc-ipv6"
+  enable_ipv6 = true
 %s
 }
 `, phase3BaseAttrs)
