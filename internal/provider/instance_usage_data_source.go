@@ -61,18 +61,24 @@ func (d *instanceUsageDataSource) Read(ctx context.Context, req datasource.ReadR
 		return
 	}
 
-	items, err := d.api.GetUsageHistory(ctx, config.InstanceID.ValueString())
-	if err != nil {
+	if err := readUsage(ctx, d.api, &config); err != nil {
 		resp.Diagnostics.AddError("Failed to get usage history", err.Error())
 		return
+	}
+	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
+}
+
+func readUsage(ctx context.Context, api UsageAPI, m *InstanceUsageModel) error {
+	items, err := api.GetUsageHistory(ctx, m.InstanceID.ValueString())
+	if err != nil {
+		return err
 	}
 
 	jsonBytes, err := json.Marshal(items)
 	if err != nil {
-		resp.Diagnostics.AddError("Failed to marshal usage history", err.Error())
-		return
+		return err
 	}
 
-	config.Items = types.StringValue(string(jsonBytes))
-	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
+	m.Items = types.StringValue(string(jsonBytes))
+	return nil
 }
