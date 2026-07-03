@@ -87,6 +87,7 @@ func (p *CloudFlyProvider) DataSources(ctx context.Context) []func() datasource.
 	return []func() datasource.DataSource{
 		NewRegionsDataSource,
 		NewSSHKeysDataSource,
+		NewInstanceOptionsDataSource,
 	}
 }
 
