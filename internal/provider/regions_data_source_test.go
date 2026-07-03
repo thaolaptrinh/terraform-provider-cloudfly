@@ -1,0 +1,25 @@
+// Copyright IBM Corp. 2026
+// SPDX-License-Identifier: MPL-2.0
+
+package provider
+
+import (
+	"testing"
+
+	"github.com/thaolaptrinh/terraform-provider-cloudfly/internal/client"
+)
+
+func TestToRegionModels(t *testing.T) {
+	in := []client.Region{{ID: "r1", Name: "HN", Description: "d"}}
+	got := toRegionModels(in)
+	if len(got) != 1 || got[0].ID.ValueString() != "r1" || got[0].Name.ValueString() != "HN" {
+		t.Fatalf("unexpected: %+v", got)
+	}
+}
+
+func TestToRegionModels_Empty(t *testing.T) {
+	got := toRegionModels(nil)
+	if len(got) != 0 {
+		t.Fatalf("expected empty, got %+v", got)
+	}
+}
