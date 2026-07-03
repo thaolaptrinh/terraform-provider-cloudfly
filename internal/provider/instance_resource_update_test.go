@@ -11,20 +11,6 @@ import (
 	"github.com/thaolaptrinh/terraform-provider-cloudfly/internal/client"
 )
 
-// strList builds a types.List of strings from a slice.
-func strList(t *testing.T, vals ...string) types.List {
-	t.Helper()
-	elems := make([]interface{}, len(vals))
-	for i, v := range vals {
-		elems[i] = types.StringValue(v)
-	}
-	l, diags := types.ListValueFrom(context.Background(), types.StringType, elems)
-	if diags.HasError() {
-		t.Fatalf("strList: %v", diags)
-	}
-	return l
-}
-
 // runUpdate runs applyUpdate against the mock and fails on error.
 func runUpdate(t *testing.T, api InstancesAPI, state, plan InstanceResourceModel) {
 	t.Helper()
@@ -540,8 +526,3 @@ func TestUpdate_Network_DetachError(t *testing.T) {
 		t.Fatal("expected detach error, got nil")
 	}
 }
-
-// errSentinel is a simple error for mocking API failures.
-type errSentinel string
-
-func (e errSentinel) Error() string { return string(e) }

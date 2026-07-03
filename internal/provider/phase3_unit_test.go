@@ -23,6 +23,10 @@ type mockSnapshotAPI struct {
 	createCalls   int
 	listCalls     int
 	listCallNames []string
+	getResult     *client.Snapshot
+	getErr        error
+	getCalls      int
+	getCallID     string
 }
 
 func (m *mockSnapshotAPI) CreateSnapshot(context.Context, string, client.SnapshotCreate) error {
@@ -34,8 +38,10 @@ func (m *mockSnapshotAPI) ListSnapshots(_ context.Context, instID string) ([]cli
 	m.listCallNames = append(m.listCallNames, instID)
 	return m.listResult, m.listErr
 }
-func (m *mockSnapshotAPI) GetSnapshot(_ context.Context, _, _ string) (*client.Snapshot, error) {
-	return nil, nil
+func (m *mockSnapshotAPI) GetSnapshot(_ context.Context, _, snapID string) (*client.Snapshot, error) {
+	m.getCalls++
+	m.getCallID = snapID
+	return m.getResult, m.getErr
 }
 
 func TestWaitForSnapshot_Immediate(t *testing.T) {
@@ -152,5 +158,21 @@ func TestSnapshotToModel_NameNotSet(t *testing.T) {
 	}
 	if m.ID.ValueString() != "s1" {
 		t.Fatalf("id=%s, want s1", m.ID.ValueString())
+	}
+}
+
+func TestSnapshotToModel_EmptyFields(t *testing.T) {
+	snap := &client.Snapshot{ID: "s1", Name: "n1", Status: "available"}
+	m := &SnapshotResourceModel{}
+	snapshotToModel(snap, m)
+
+	if m.ID.ValueString() != "s1" {
+		t.Errorf("id = %q, want s1", m.ID.ValueString())
+	}
+	if m.InstanceID.ValueString() != "" {
+		t.Errorf("instance_id should be empty when InstanceUUID is empty, got %q", m.InstanceID.ValueString())
+	}
+	if m.Description.ValueString() != "" {
+		t.Errorf("description should be empty, got %q", m.Description.ValueString())
 	}
 }
