@@ -98,6 +98,31 @@ type SecurityGroup struct {
 	Name string `json:"name,omitempty"`
 }
 
+type InterfaceItem struct {
+	InterfaceID string `json:"interface_id"`
+	NetworkID   string `json:"network_id"`
+	SubnetID    string `json:"subnet_id"`
+	IPVersion   string `json:"ip_version"`
+	IsDefault   bool   `json:"is_default"`
+	Gateway     string `json:"gateway"`
+	IPAddress   string `json:"ip_address"`
+}
+
+type InterfaceGroup struct {
+	Data        []InterfaceItem `json:"data"`
+	NetworkName string          `json:"network_name"`
+	IsPublic    bool            `json:"is_public"`
+	IPV6Range   []interface{}   `json:"ipv6_range"`
+}
+
+type attachInterfaceRequest struct {
+	NetworkID string `json:"network_id"`
+}
+
+type detachInterfaceRequest struct {
+	InterfaceID string `json:"interface_id"`
+}
+
 type rebuildRequest struct {
 	ImageID string `json:"image_id"`
 }
@@ -384,6 +409,49 @@ func (c *Client) ListImages(ctx context.Context) ([]Image, error) {
 
 func (c *Client) RebuildInstance(ctx context.Context, id, imageID string) error {
 	resp, err := c.Do(ctx, http.MethodPost, "/instances/"+id+"/rebuild", rebuildRequest{ImageID: imageID}, nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return AsError(resp)
+}
+
+func (c *Client) EnableIPv6Range(ctx context.Context, id string) error {
+	resp, err := c.Do(ctx, http.MethodPost, "/instances/"+id+"/enable-ipv6-range", nil, nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return AsError(resp)
+}
+
+func (c *Client) ListInterfaces(ctx context.Context, id string) ([]InterfaceGroup, error) {
+	resp, err := c.Do(ctx, http.MethodGet, "/instances/"+id+"/interfaces", nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if err := AsError(resp); err != nil {
+		return nil, err
+	}
+	var out []InterfaceGroup
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, fmt.Errorf("decode interfaces: %w", err)
+	}
+	return out, nil
+}
+
+func (c *Client) AttachInterface(ctx context.Context, id, networkID string) error {
+	resp, err := c.Do(ctx, http.MethodPost, "/instances/"+id+"/attach-interface", attachInterfaceRequest{NetworkID: networkID}, nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return AsError(resp)
+}
+
+func (c *Client) DetachInterface(ctx context.Context, id, interfaceID string) error {
+	resp, err := c.Do(ctx, http.MethodPost, "/instances/"+id+"/detach-interface", detachInterfaceRequest{InterfaceID: interfaceID}, nil)
 	if err != nil {
 		return err
 	}

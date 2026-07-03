@@ -290,6 +290,118 @@ func TestAccPhase3_Snapshot(t *testing.T) {
 	})
 }
 
+// TestAccPhase3_BackupSchedule creates a backup schedule and verifies computed attrs.
+func TestAccPhase3_BackupSchedule(t *testing.T) {
+	testAccPreCheck(t)
+	requireAccCreate(t)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccPhase3BackupScheduleConfig(),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestMatchResourceAttr("cloudfly_backup_schedule.test", "id", regexp.MustCompile(`[0-9]+`)),
+					resource.TestCheckResourceAttr("cloudfly_backup_schedule.test", "backup_type", "weekly"),
+					resource.TestMatchResourceAttr("cloudfly_backup_schedule.test", "rotation", regexp.MustCompile(`[0-9]+`)),
+					resource.TestMatchResourceAttr("cloudfly_backup_schedule.test", "run_at", regexp.MustCompile(`.+`)),
+				),
+			},
+		},
+	})
+}
+
+func testAccPhase3BackupScheduleConfig() string {
+	return fmt.Sprintf(`
+resource "cloudfly_instance" "test" {
+  name = "tf-acc-backup"
+%s
+}
+
+resource "cloudfly_backup_schedule" "test" {
+  instance_id = cloudfly_instance.test.id
+  backup_type = "weekly"
+}
+`, phase3BaseAttrs)
+}
+
+// TestAccPhase3_NetworkIDs verifies the network_ids attribute can be set.
+func TestAccPhase3_NetworkIDs(t *testing.T) {
+	testAccPreCheck(t)
+	requireAccCreate(t)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccPhase3NetworkIDsConfig(),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestMatchResourceAttr("cloudfly_instance.test", "id", regexp.MustCompile(`.+`)),
+					resource.TestCheckResourceAttr("cloudfly_instance.test", "network_ids.#", "0"),
+				),
+			},
+		},
+	})
+}
+
+func testAccPhase3NetworkIDsConfig() string {
+	return fmt.Sprintf(`
+resource "cloudfly_instance" "test" {
+  name        = "tf-acc-networks"
+  network_ids = []
+%s
+}
+`, phase3BaseAttrs)
+}
+
+// TestAccPhase3_IPv6Enable creates an instance and enables IPv6 post-create.
+// Skipped unless CLOUDFLY_ACC_CREATE=1 AND CLOUDFLY_ACC_IPV6=1 (IPv6 costs).
+func TestAccPhase3_IPv6Enable(t *testing.T) {
+	testAccPreCheck(t)
+	if os.Getenv("CLOUDFLY_ACC_IPV6") == "" {
+		t.Skip("CLOUDFLY_ACC_IPV6 not set; skipping IPv6 enable test")
+	}
+	requireAccCreate(t)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccPhase3NoIPv6Config(),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("cloudfly_instance.test", "enable_ipv6", "false"),
+				),
+			},
+			{
+				Config: testAccPhase3EnableIPv6Config(),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("cloudfly_instance.test", "enable_ipv6", "true"),
+				),
+			},
+		},
+	})
+}
+
+func testAccPhase3NoIPv6Config() string {
+	return fmt.Sprintf(`
+resource "cloudfly_instance" "test" {
+  name        = "tf-acc-ipv6"
+  enable_ipv6 = false
+%s
+}
+`, phase3BaseAttrs)
+}
+
+func testAccPhase3EnableIPv6Config() string {
+	return fmt.Sprintf(`
+resource "cloudfly_instance" "test" {
+  name        = "tf-acc-ipv6"
+  enable_ipv6 = true
+%s
+}
+`, phase3BaseAttrs)
+}
+
 // --- Config helpers ---
 
 const phase3BaseAttrs = `

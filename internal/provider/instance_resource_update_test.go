@@ -334,6 +334,213 @@ func TestUpdate_NoChanges_AllOpsSkipped(t *testing.T) {
 	}
 }
 
+// --- IPv6 ---
+
+func TestUpdate_IPv6_Enable(t *testing.T) {
+	mock := &mockInstancesAPI{getInstance: &client.Instance{ID: "i1", Status: "ACTIVE"}}
+	state := InstanceResourceModel{ID: types.StringValue("i1"), EnableIPv6: types.BoolValue(false)}
+	plan := InstanceResourceModel{ID: types.StringValue("i1"), EnableIPv6: types.BoolValue(true)}
+	runUpdate(t, mock, state, plan)
+	if mock.enableIPv6RangeCalls != 1 {
+		t.Fatalf("want enableIPv6RangeCalls=1, got %d", mock.enableIPv6RangeCalls)
+	}
+	if mock.enableIPv6RangeID != "i1" {
+		t.Fatalf("enableIPv6RangeID = %q, want i1", mock.enableIPv6RangeID)
+	}
+}
+
+func TestUpdate_IPv6_DisableNoOp(t *testing.T) {
+	mock := &mockInstancesAPI{getInstance: &client.Instance{ID: "i1", Status: "ACTIVE"}}
+	state := InstanceResourceModel{ID: types.StringValue("i1"), EnableIPv6: types.BoolValue(true)}
+	plan := InstanceResourceModel{ID: types.StringValue("i1"), EnableIPv6: types.BoolValue(false)}
+	runUpdate(t, mock, state, plan)
+	if mock.enableIPv6RangeCalls != 0 {
+		t.Fatalf("disable should be no-op, got %d calls", mock.enableIPv6RangeCalls)
+	}
+}
+
+func TestUpdate_IPv6_AlreadyEnabled(t *testing.T) {
+	mock := &mockInstancesAPI{getInstance: &client.Instance{ID: "i1", Status: "ACTIVE"}}
+	state := InstanceResourceModel{ID: types.StringValue("i1"), EnableIPv6: types.BoolValue(true)}
+	plan := InstanceResourceModel{ID: types.StringValue("i1"), EnableIPv6: types.BoolValue(true)}
+	runUpdate(t, mock, state, plan)
+	if mock.enableIPv6RangeCalls != 0 {
+		t.Fatalf("already enabled: want 0 calls, got %d", mock.enableIPv6RangeCalls)
+	}
+}
+
+func TestUpdate_IPv6_EnableError(t *testing.T) {
+	mock := &mockInstancesAPI{
+		getInstance:        &client.Instance{ID: "i1"},
+		enableIPv6RangeErr: errSentinel("ipv6-error"),
+	}
+	state := InstanceResourceModel{ID: types.StringValue("i1"), EnableIPv6: types.BoolValue(false)}
+	plan := InstanceResourceModel{ID: types.StringValue("i1"), EnableIPv6: types.BoolValue(true)}
+	r := &instanceResource{api: mock}
+	if err := r.applyUpdate(context.Background(), &state, &plan); err == nil {
+		t.Fatal("expected ipv6 enable error, got nil")
+	}
+}
+
+// --- Network reconcile ---
+
+func TestUpdate_Network_AttachNew(t *testing.T) {
+	mock := &mockInstancesAPI{
+		getInstance:          &client.Instance{ID: "i1", Status: "ACTIVE"},
+		listInterfacesReturn: nil,
+	}
+	state := InstanceResourceModel{ID: types.StringValue("i1")}
+	plan := InstanceResourceModel{
+		ID:         types.StringValue("i1"),
+		NetworkIDs: strList(t, "net-1"),
+	}
+	runUpdate(t, mock, state, plan)
+	if mock.attachCalls != 1 || mock.attachNetworkID != "net-1" || mock.detachCalls != 0 {
+		t.Fatalf("attach: calls=%d id=%q detachCalls=%d, want calls=1 id=net-1 detachCalls=0",
+			mock.attachCalls, mock.attachNetworkID, mock.detachCalls)
+	}
+}
+
+func TestUpdate_Network_DetachRemoved(t *testing.T) {
+	mock := &mockInstancesAPI{
+		getInstance: &client.Instance{ID: "i1", Status: "ACTIVE"},
+		listInterfacesReturn: []client.InterfaceGroup{{
+			Data:     []client.InterfaceItem{{InterfaceID: "if-1", NetworkID: "net-1"}},
+			IsPublic: false,
+		}},
+	}
+	state := InstanceResourceModel{ID: types.StringValue("i1")}
+	plan := InstanceResourceModel{
+		ID:         types.StringValue("i1"),
+		NetworkIDs: strList(t),
+	}
+	runUpdate(t, mock, state, plan)
+	if mock.detachCalls != 1 || mock.detachInterfaceID != "if-1" || mock.attachCalls != 0 {
+		t.Fatalf("detach: calls=%d id=%q attachCalls=%d, want calls=1 id=if-1 attachCalls=0",
+			mock.detachCalls, mock.detachInterfaceID, mock.attachCalls)
+	}
+}
+
+func TestUpdate_Network_NoOpWhenUnchanged(t *testing.T) {
+	mock := &mockInstancesAPI{
+		getInstance:          &client.Instance{ID: "i1", Status: "ACTIVE"},
+		listInterfacesReturn: nil,
+	}
+	netList := strList(t, "net-1")
+	state := InstanceResourceModel{ID: types.StringValue("i1"), NetworkIDs: netList}
+	plan := InstanceResourceModel{ID: types.StringValue("i1"), NetworkIDs: netList}
+	runUpdate(t, mock, state, plan)
+	if mock.attachCalls+mock.detachCalls != 0 {
+		t.Fatalf("unchanged: want 0 ops, got attach=%d detach=%d", mock.attachCalls, mock.detachCalls)
+	}
+}
+
+func TestUpdate_Network_SkipsDefaultPublic(t *testing.T) {
+	mock := &mockInstancesAPI{
+		getInstance: &client.Instance{ID: "i1", Status: "ACTIVE"},
+		listInterfacesReturn: []client.InterfaceGroup{{
+			Data:     []client.InterfaceItem{{InterfaceID: "def-if", NetworkID: "net-public", IsDefault: true}},
+			IsPublic: true,
+		}},
+	}
+	planList := strList(t, "net-other")
+	state := InstanceResourceModel{ID: types.StringValue("i1")}
+	plan := InstanceResourceModel{ID: types.StringValue("i1"), NetworkIDs: planList}
+	runUpdate(t, mock, state, plan)
+	if mock.detachCalls != 0 {
+		t.Fatalf("should not detach default public, got detach=%d", mock.detachCalls)
+	}
+	if mock.attachCalls != 1 || mock.attachNetworkID != "net-other" {
+		t.Fatalf("should attach net-other: calls=%d id=%q", mock.attachCalls, mock.attachNetworkID)
+	}
+}
+
+func TestUpdate_Network_DetachMultiInterface(t *testing.T) {
+	mock := &mockInstancesAPI{
+		getInstance: &client.Instance{ID: "i1", Status: "ACTIVE"},
+		listInterfacesReturn: []client.InterfaceGroup{{
+			Data: []client.InterfaceItem{
+				{InterfaceID: "if-ipv4", NetworkID: "net-1", IPVersion: "IPv4"},
+				{InterfaceID: "if-ipv6", NetworkID: "net-1", IPVersion: "IPv6"},
+			},
+		}},
+	}
+	state := InstanceResourceModel{ID: types.StringValue("i1")}
+	plan := InstanceResourceModel{
+		ID:         types.StringValue("i1"),
+		NetworkIDs: strList(t),
+	}
+	runUpdate(t, mock, state, plan)
+	if mock.detachCalls != 2 {
+		t.Fatalf("multi-interface detach: want 2, got %d", mock.detachCalls)
+	}
+}
+
+func TestUpdate_Network_NullPlanSkipped(t *testing.T) {
+	mock := &mockInstancesAPI{
+		getInstance: &client.Instance{ID: "i1", Status: "ACTIVE"},
+	}
+	state := InstanceResourceModel{ID: types.StringValue("i1")}
+	plan := InstanceResourceModel{ID: types.StringValue("i1")}
+	runUpdate(t, mock, state, plan)
+	if mock.attachCalls+mock.detachCalls != 0 {
+		t.Fatalf("null plan: want 0 ops, got attach=%d detach=%d", mock.attachCalls, mock.detachCalls)
+	}
+}
+
+func TestUpdate_Network_ListError(t *testing.T) {
+	mock := &mockInstancesAPI{
+		getInstance:       &client.Instance{ID: "i1", Status: "ACTIVE"},
+		listInterfacesErr: errSentinel("list-fail"),
+	}
+	state := InstanceResourceModel{ID: types.StringValue("i1")}
+	plan := InstanceResourceModel{
+		ID:         types.StringValue("i1"),
+		NetworkIDs: strList(t, "net-1"),
+	}
+	r := &instanceResource{api: mock}
+	if err := r.applyUpdate(context.Background(), &state, &plan); err == nil {
+		t.Fatal("expected list error, got nil")
+	}
+}
+
+func TestUpdate_Network_AttachError(t *testing.T) {
+	mock := &mockInstancesAPI{
+		getInstance:          &client.Instance{ID: "i1", Status: "ACTIVE"},
+		listInterfacesReturn: nil,
+		attachErr:            errSentinel("attach-fail"),
+	}
+	state := InstanceResourceModel{ID: types.StringValue("i1")}
+	plan := InstanceResourceModel{
+		ID:         types.StringValue("i1"),
+		NetworkIDs: strList(t, "net-1"),
+	}
+	r := &instanceResource{api: mock}
+	if err := r.applyUpdate(context.Background(), &state, &plan); err == nil {
+		t.Fatal("expected attach error, got nil")
+	}
+}
+
+func TestUpdate_Network_DetachError(t *testing.T) {
+	mock := &mockInstancesAPI{
+		getInstance: &client.Instance{ID: "i1", Status: "ACTIVE"},
+		listInterfacesReturn: []client.InterfaceGroup{{
+			Data:     []client.InterfaceItem{{InterfaceID: "if-1", NetworkID: "net-1"}},
+			IsPublic: false,
+		}},
+		detachErr: errSentinel("detach-fail"),
+	}
+	state := InstanceResourceModel{ID: types.StringValue("i1")}
+	plan := InstanceResourceModel{
+		ID:         types.StringValue("i1"),
+		NetworkIDs: strList(t),
+	}
+	r := &instanceResource{api: mock}
+	if err := r.applyUpdate(context.Background(), &state, &plan); err == nil {
+		t.Fatal("expected detach error, got nil")
+	}
+}
+
 // errSentinel is a simple error for mocking API failures.
 type errSentinel string
 

@@ -27,15 +27,23 @@ type mockInstancesAPI struct {
 	listSGCalls                             int
 
 	// Return values.
-	getInstance                  *client.Instance
-	currentSGs                   []client.SecurityGroup
-	startErr, stopErr, rebootErr error
-	renameErr, passwordErr       error
-	reverseErr                   error
-	addSGErr, removeSGErr        error
-	listSGErr                    error
-	getInstanceErr               error
-	waitActiveErr, waitStopErr   error
+	getInstance                        *client.Instance
+	currentSGs                         []client.SecurityGroup
+	startErr, stopErr, rebootErr       error
+	renameErr, passwordErr             error
+	reverseErr                         error
+	addSGErr, removeSGErr              error
+	listSGErr                          error
+	getInstanceErr                     error
+	waitActiveErr, waitStopErr         error
+	enableIPv6RangeCalls               int
+	enableIPv6RangeID                  string
+	enableIPv6RangeErr                 error
+	attachNetworkID, detachInterfaceID string
+	attachCalls, detachCalls           int
+	listInterfacesReturn               []client.InterfaceGroup
+	listInterfacesErr                  error
+	attachErr, detachErr               error
 }
 
 func (m *mockInstancesAPI) CreateInstance(context.Context, client.InstanceCreate) (string, error) {
@@ -102,4 +110,22 @@ func (m *mockInstancesAPI) ListSecurityGroups(_ context.Context, id string) ([]c
 	m.listSGCalls++
 	m.listSGID = id
 	return m.currentSGs, m.listSGErr
+}
+func (m *mockInstancesAPI) EnableIPv6Range(_ context.Context, id string) error {
+	m.enableIPv6RangeCalls++
+	m.enableIPv6RangeID = id
+	return m.enableIPv6RangeErr
+}
+func (m *mockInstancesAPI) ListInterfaces(_ context.Context, id string) ([]client.InterfaceGroup, error) {
+	return m.listInterfacesReturn, m.listInterfacesErr
+}
+func (m *mockInstancesAPI) AttachInterface(_ context.Context, id, networkID string) error {
+	m.attachCalls++
+	m.attachNetworkID = networkID
+	return m.attachErr
+}
+func (m *mockInstancesAPI) DetachInterface(_ context.Context, id, interfaceID string) error {
+	m.detachCalls++
+	m.detachInterfaceID = interfaceID
+	return m.detachErr
 }

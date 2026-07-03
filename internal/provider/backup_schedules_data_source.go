@@ -15,7 +15,7 @@ import (
 )
 
 type BackupSchedulesAPI interface {
-	GetBackupSchedules(ctx context.Context, instanceID string) ([]client.BackupSchedule, error)
+	ListBackupSchedules(ctx context.Context, instanceID string) ([]client.BackupSchedule, error)
 }
 
 type backupSchedulesDataSource struct {
@@ -86,7 +86,7 @@ func (d *backupSchedulesDataSource) Read(ctx context.Context, req datasource.Rea
 		return
 	}
 
-	schedules, err := d.api.GetBackupSchedules(ctx, config.InstanceID.ValueString())
+	schedules, err := d.api.ListBackupSchedules(ctx, config.InstanceID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to get backup schedules", err.Error())
 		return
