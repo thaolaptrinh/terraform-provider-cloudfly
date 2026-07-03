@@ -52,7 +52,7 @@ Implement CloudFly instance capabilities using Terraform resource lifecycle oper
 ### Operations
 
 - [x] Power management
-- [ ] Rebuild (API requires image_id — no list-images endpoint available)
+- [ ] ~~Rebuild~~ (API POST /instances/{id}/rebuild returns 405 Method Not Allowed)
 - [x] Rename
 - [x] Password management
 

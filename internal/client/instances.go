@@ -89,12 +89,17 @@ type Flavor struct {
 
 // Image is the nested image object; the configured image name is Image.Name.
 type Image struct {
-	Name string `json:"name"`
+	ID   string `json:"id"`
+	Name string `json:"name,omitempty"`
 }
 
 type SecurityGroup struct {
 	ID   string `json:"id"`
 	Name string `json:"name,omitempty"`
+}
+
+type rebuildRequest struct {
+	ImageID string `json:"image_id"`
 }
 
 type rebootRequest struct {
@@ -354,4 +359,34 @@ func (c *Client) WaitInstanceStopped(ctx context.Context, id string, timeout, in
 		time.Sleep(interval)
 	}
 	return fmt.Errorf("timed out waiting for instance %s to stop", id)
+}
+
+type imagesResponse struct {
+	Count   int     `json:"count"`
+	Results []Image `json:"results"`
+}
+
+func (c *Client) ListImages(ctx context.Context) ([]Image, error) {
+	resp, err := c.Do(ctx, http.MethodGet, "/images", nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if err := AsError(resp); err != nil {
+		return nil, err
+	}
+	var out imagesResponse
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, fmt.Errorf("decode images: %w", err)
+	}
+	return out.Results, nil
+}
+
+func (c *Client) RebuildInstance(ctx context.Context, id, imageID string) error {
+	resp, err := c.Do(ctx, http.MethodPost, "/instances/"+id+"/rebuild", rebuildRequest{ImageID: imageID}, nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return AsError(resp)
 }

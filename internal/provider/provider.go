@@ -96,6 +96,7 @@ func (p *CloudFlyProvider) DataSources(ctx context.Context) []func() datasource.
 		NewInstanceUsageDataSource,
 		NewUsageSummaryDataSource,
 		NewBackupSchedulesDataSource,
+		NewImagesDataSource,
 	}
 }
 

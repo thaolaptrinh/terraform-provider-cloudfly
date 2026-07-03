@@ -252,6 +252,22 @@ func TestAccPhase3_ConcurrentUpdate(t *testing.T) {
 	})
 }
 
+// TestAccPhase3_ImagesDataSource verifies the cloudfly_images data source
+// returns a non-empty image list.
+func TestAccPhase3_ImagesDataSource(t *testing.T) {
+	testAccPreCheck(t)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{{
+			Config: `data "cloudfly_images" "all" {}`,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestMatchResourceAttr("data.cloudfly_images.all", "images.#", regexp.MustCompile(`[0-9]+`)),
+			),
+		}},
+	})
+}
+
 // TestAccPhase3_Snapshot creates an instance, takes a snapshot, reads it back.
 func TestAccPhase3_Snapshot(t *testing.T) {
 	testAccPreCheck(t)
