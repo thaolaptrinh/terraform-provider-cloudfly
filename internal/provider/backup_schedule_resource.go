@@ -82,8 +82,16 @@ func (r *backupScheduleResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
-	instID := plan.InstanceID.ValueString()
-	backupType := plan.BackupType.ValueString()
+	if err := createBackupSchedule(ctx, r.api, &plan); err != nil {
+		resp.Diagnostics.AddError("Failed to create backup schedule", err.Error())
+		return
+	}
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+}
+
+func createBackupSchedule(ctx context.Context, api BackupScheduleAPI, m *BackupScheduleResourceModel) error {
+	instID := m.InstanceID.ValueString()
+	backupType := m.BackupType.ValueString()
 	if backupType == "" {
 		backupType = "weekly"
 	}
@@ -92,19 +100,17 @@ func (r *backupScheduleResource) Create(ctx context.Context, req resource.Create
 		BackupType: backupType,
 	}
 
-	if err := r.api.CreateBackupSchedule(ctx, instID, createReq); err != nil {
-		resp.Diagnostics.AddError("Failed to create backup schedule", err.Error())
-		return
+	if err := api.CreateBackupSchedule(ctx, instID, createReq); err != nil {
+		return err
 	}
 
-	found, err := waitForBackupSchedule(ctx, r.api, instID, backupType, backupScheduleCreateTimeout, backupSchedulePollInterval)
+	found, err := waitForBackupSchedule(ctx, api, instID, backupType, backupScheduleCreateTimeout, backupSchedulePollInterval)
 	if err != nil {
-		resp.Diagnostics.AddError("Backup schedule did not appear", err.Error())
-		return
+		return err
 	}
 
-	backupScheduleToModel(found, &plan)
-	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+	backupScheduleToModel(found, m)
+	return nil
 }
 
 func waitForBackupSchedule(ctx context.Context, api BackupScheduleAPI, instID, backupType string, timeout, interval time.Duration) (*client.BackupSchedule, error) {
@@ -136,13 +142,20 @@ func (r *backupScheduleResource) Read(ctx context.Context, req resource.ReadRequ
 		return
 	}
 
-	schedule, err := r.api.GetBackupSchedule(ctx, state.InstanceID.ValueString(), state.ID.ValueString())
-	if err != nil {
+	if err := readBackupSchedule(ctx, r.api, &state); err != nil {
 		resp.Diagnostics.AddError("Failed to read backup schedule", err.Error())
 		return
 	}
-	backupScheduleToModel(schedule, &state)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+}
+
+func readBackupSchedule(ctx context.Context, api BackupScheduleAPI, m *BackupScheduleResourceModel) error {
+	schedule, err := api.GetBackupSchedule(ctx, m.InstanceID.ValueString(), m.ID.ValueString())
+	if err != nil {
+		return err
+	}
+	backupScheduleToModel(schedule, m)
+	return nil
 }
 
 func (r *backupScheduleResource) Update(_ context.Context, _ resource.UpdateRequest, resp *resource.UpdateResponse) {

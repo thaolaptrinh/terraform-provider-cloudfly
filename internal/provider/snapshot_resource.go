@@ -91,24 +91,30 @@ func (r *snapshotResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	instID := plan.InstanceID.ValueString()
-	snapName := plan.Name.ValueString()
-	desc := plan.Description.ValueString()
-
-	if err := r.api.CreateSnapshot(ctx, instID, client.SnapshotCreate{Name: snapName, Description: desc}); err != nil {
+	if err := createSnapshot(ctx, r.api, &plan); err != nil {
 		resp.Diagnostics.AddError("Failed to create snapshot", err.Error())
 		return
 	}
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+}
 
-	found, err := waitForSnapshot(ctx, r.api, instID, snapName, snapshotCreateTimeout, snapshotPollInterval)
-	if err != nil {
-		resp.Diagnostics.AddError("Snapshot did not appear", err.Error())
-		return
+func createSnapshot(ctx context.Context, api SnapshotAPI, m *SnapshotResourceModel) error {
+	instID := m.InstanceID.ValueString()
+	snapName := m.Name.ValueString()
+	desc := m.Description.ValueString()
+
+	if err := api.CreateSnapshot(ctx, instID, client.SnapshotCreate{Name: snapName, Description: desc}); err != nil {
+		return err
 	}
 
-	snapshotToModel(found, &plan)
-	plan.Name = types.StringValue(snapName)
-	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+	found, err := waitForSnapshot(ctx, api, instID, snapName, snapshotCreateTimeout, snapshotPollInterval)
+	if err != nil {
+		return err
+	}
+
+	snapshotToModel(found, m)
+	m.Name = types.StringValue(snapName)
+	return nil
 }
 
 // waitForSnapshot polls ListSnapshots until a snapshot whose Name contains
@@ -143,13 +149,20 @@ func (r *snapshotResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
-	snap, err := r.api.GetSnapshot(ctx, state.InstanceID.ValueString(), state.ID.ValueString())
-	if err != nil {
+	if err := readSnapshot(ctx, r.api, &state); err != nil {
 		resp.Diagnostics.AddError("Failed to read snapshot", err.Error())
 		return
 	}
-	snapshotToModel(snap, &state)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+}
+
+func readSnapshot(ctx context.Context, api SnapshotAPI, m *SnapshotResourceModel) error {
+	snap, err := api.GetSnapshot(ctx, m.InstanceID.ValueString(), m.ID.ValueString())
+	if err != nil {
+		return err
+	}
+	snapshotToModel(snap, m)
+	return nil
 }
 
 func (r *snapshotResource) Update(_ context.Context, _ resource.UpdateRequest, resp *resource.UpdateResponse) {

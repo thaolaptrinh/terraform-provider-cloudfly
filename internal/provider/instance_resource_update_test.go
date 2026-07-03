@@ -526,3 +526,22 @@ func TestUpdate_Network_DetachError(t *testing.T) {
 		t.Fatal("expected detach error, got nil")
 	}
 }
+
+// strList builds a types.List of strings from a slice.
+func strList(t *testing.T, vals ...string) types.List {
+	t.Helper()
+	elems := make([]interface{}, len(vals))
+	for i, v := range vals {
+		elems[i] = types.StringValue(v)
+	}
+	l, diags := types.ListValueFrom(context.Background(), types.StringType, elems)
+	if diags.HasError() {
+		t.Fatalf("strList: %v", diags)
+	}
+	return l
+}
+
+// errSentinel is a simple error for mocking API failures.
+type errSentinel string
+
+func (e errSentinel) Error() string { return string(e) }
