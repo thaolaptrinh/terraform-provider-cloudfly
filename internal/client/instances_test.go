@@ -369,3 +369,70 @@ func TestGetSnapshot_NotFound(t *testing.T) {
 		t.Fatal("expected error for missing snapshot")
 	}
 }
+
+func TestGetMetrics(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/instances/i1/metrics" || r.Method != http.MethodGet {
+			t.Errorf("unexpected: %s %s", r.Method, r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[{"timestamp":"2026-01-01","value":42.5}]}`))
+	}))
+	t.Cleanup(srv.Close)
+	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	resp, err := c.GetMetrics(context.Background(), "i1", "vcpu", "1h")
+	if err != nil {
+		t.Fatalf("GetMetrics error: %v", err)
+	}
+	if len(resp.Data) != 1 {
+		t.Errorf("expected 1 data point, got %d", len(resp.Data))
+	}
+}
+
+func TestGetUsageHistory(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[{"date":"2026-01-01","usage_mb":500}]`))
+	}))
+	t.Cleanup(srv.Close)
+	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	items, err := c.GetUsageHistory(context.Background(), "i1")
+	if err != nil {
+		t.Fatalf("GetUsageHistory error: %v", err)
+	}
+	if len(items) != 1 {
+		t.Errorf("expected 1 item, got %d", len(items))
+	}
+}
+
+func TestGetUsageSummary(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"csv_path":"https://example.com/summary.csv"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	resp, err := c.GetUsageSummary(context.Background())
+	if err != nil {
+		t.Fatalf("GetUsageSummary error: %v", err)
+	}
+	if resp.CSVPath != "https://example.com/summary.csv" {
+		t.Errorf("unexpected csv_path: %s", resp.CSVPath)
+	}
+}
+
+func TestGetBackupSchedules(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[{"id":1,"instance":"i1","rotation":7,"run_at":"2026-01-01T00:00:00Z","backup_name":"weekly","backup_type":"weekly"}]`))
+	}))
+	t.Cleanup(srv.Close)
+	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	schedules, err := c.GetBackupSchedules(context.Background(), "i1")
+	if err != nil {
+		t.Fatalf("GetBackupSchedules error: %v", err)
+	}
+	if len(schedules) != 1 || schedules[0].BackupType != "weekly" {
+		t.Errorf("unexpected: %+v", schedules)
+	}
+}
