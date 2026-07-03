@@ -556,3 +556,43 @@ resource "cloudfly_instance" "test" {
 }
 `, phase3BaseAttrs)
 }
+
+func TestAccPhase3_Snapshot_Import(t *testing.T) {
+	testAccPreCheck(t)
+	requireAccCreate(t)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccPhase3SnapshotConfig(),
+			},
+			{
+				Config:            testAccPhase3SnapshotConfig(),
+				ImportState:       true,
+				ImportStateVerify: true,
+				ResourceName:      "cloudfly_snapshot.test",
+			},
+		},
+	})
+}
+
+func TestAccPhase3_BackupSchedule_Import(t *testing.T) {
+	testAccPreCheck(t)
+	requireAccCreate(t)
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccPhase3BackupScheduleConfig(),
+			},
+			{
+				Config:            testAccPhase3BackupScheduleConfig(),
+				ImportState:       true,
+				ImportStateVerify: true,
+				ResourceName:      "cloudfly_backup_schedule.test",
+			},
+		},
+	})
+}

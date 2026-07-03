@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/thaolaptrinh/terraform-provider-cloudfly/internal/client"
 )
@@ -76,16 +77,7 @@ func (d *imagesDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 		return
 	}
 
-	objs := make([]attr.Value, 0, len(images))
-	for _, img := range images {
-		obj, diags := types.ObjectValue(imageObjectType.AttrTypes, map[string]attr.Value{
-			"id":   types.StringValue(img.ID),
-			"name": types.StringValue(img.Name),
-		})
-		resp.Diagnostics.Append(diags...)
-		objs = append(objs, obj)
-	}
-	listValue, diags := types.ListValue(imageObjectType, objs)
+	listValue, diags := imagesToList(images)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -93,4 +85,20 @@ func (d *imagesDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 
 	state.Images = listValue
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+}
+
+func imagesToList(images []client.Image) (types.List, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	objs := make([]attr.Value, 0, len(images))
+	for _, img := range images {
+		obj, d := types.ObjectValue(imageObjectType.AttrTypes, map[string]attr.Value{
+			"id":   types.StringValue(img.ID),
+			"name": types.StringValue(img.Name),
+		})
+		diags.Append(d...)
+		objs = append(objs, obj)
+	}
+	listValue, d := types.ListValue(imageObjectType, objs)
+	diags.Append(d...)
+	return listValue, diags
 }

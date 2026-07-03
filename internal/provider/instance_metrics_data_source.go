@@ -64,12 +64,18 @@ func (d *instanceMetricsDataSource) Read(ctx context.Context, req datasource.Rea
 		return
 	}
 
-	metrics, err := d.api.GetMetrics(ctx, config.InstanceID.ValueString(), config.MetricType.ValueString(), config.StartTime.ValueString())
-	if err != nil {
+	if err := readMetrics(ctx, d.api, &config); err != nil {
 		resp.Diagnostics.AddError("Failed to get instance metrics", err.Error())
 		return
 	}
-
-	config.Result = types.StringValue(string(metrics.Data))
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
+}
+
+func readMetrics(ctx context.Context, api MetricsAPI, m *InstanceMetricsModel) error {
+	metrics, err := api.GetMetrics(ctx, m.InstanceID.ValueString(), m.MetricType.ValueString(), m.StartTime.ValueString())
+	if err != nil {
+		return err
+	}
+	m.Result = types.StringValue(string(metrics.Data))
+	return nil
 }
