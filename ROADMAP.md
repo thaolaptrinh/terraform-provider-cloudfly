@@ -90,9 +90,9 @@ Implement CloudFly instance capabilities using Terraform resource lifecycle oper
 
 # Phase 5 — Testing
 
-- [ ] Unit tests
-- [ ] Acceptance tests
-- [ ] Import tests
+- [x] Unit tests
+- [x] Acceptance tests
+- [x] Import tests
 
 ---
 
