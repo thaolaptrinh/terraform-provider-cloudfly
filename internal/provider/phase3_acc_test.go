@@ -346,7 +346,8 @@ func testAccPhase3RenamePasswordConfig() string {
 resource "cloudfly_instance" "test" {
   name           = "tf-acc-renamed"
   power_state    = "running"
-  admin_password = "CloudFly@2026!"
+  admin_password = "tf-acc-test-password"
+
 %s
 }
 `, phase3BaseAttrs)
@@ -368,7 +369,7 @@ func testAccPhase3ConcurrentConfig() string {
 resource "cloudfly_instance" "test" {
   name           = "tf-acc-concurrent"
   power_state    = "stopped"
-  admin_password = "Concurrent@2026!"
+  admin_password = "tf-acc-test-password"
   reverse_dns    = "concurrent.example.com"
 %s
 }
