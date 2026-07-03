@@ -34,5 +34,3 @@ website/vendor
 # Keep windows files with windows line endings
 *.winfile eol=crlf
 
-# Superpowers design docs (untracked, for execution only)
-docs/superpowers/
