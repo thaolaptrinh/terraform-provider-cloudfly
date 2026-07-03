@@ -63,6 +63,40 @@ type Image struct {
 	Name string `json:"name"`
 }
 
+type SecurityGroup struct {
+	ID   string `json:"id"`
+	Name string `json:"name,omitempty"`
+}
+
+type securityGroupsResponse struct {
+	Data []SecurityGroup `json:"data"`
+}
+
+type startStopResponse struct {
+	Detail string `json:"detail"`
+}
+
+type rebootRequest struct {
+	RebootType string `json:"reboot_type"`
+}
+
+type renameRequest struct {
+	Name string `json:"name"`
+}
+
+type passwordRequest struct {
+	AdminPassword string `json:"admin_password"`
+}
+
+type reverseDNSRequest struct {
+	ReverseDNS string `json:"reverse_dns"`
+	IPAddress  string `json:"ip_address"`
+}
+
+type securityGroupRequest struct {
+	SecurityGroupID string `json:"security_group_id"`
+}
+
 type listInstancesResponse struct {
 	Count   int        `json:"count"`
 	Results []Instance `json:"results"`
@@ -194,4 +228,109 @@ func (c *Client) WaitInstanceDeleted(ctx context.Context, id string, timeout, in
 		time.Sleep(interval)
 	}
 	return fmt.Errorf("timed out waiting for instance %s to be deleted", id)
+}
+
+func (c *Client) StartInstance(ctx context.Context, id string) error {
+	resp, err := c.Do(ctx, http.MethodGet, "/instances/"+id+"/start", nil, nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return AsError(resp)
+}
+
+func (c *Client) StopInstance(ctx context.Context, id string) error {
+	resp, err := c.Do(ctx, http.MethodGet, "/instances/"+id+"/stop", nil, nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return AsError(resp)
+}
+
+func (c *Client) RebootInstance(ctx context.Context, id string) error {
+	resp, err := c.Do(ctx, http.MethodPost, "/instances/"+id+"/reboot", rebootRequest{RebootType: "soft"}, nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return AsError(resp)
+}
+
+func (c *Client) RenameInstance(ctx context.Context, id, name string) error {
+	resp, err := c.Do(ctx, http.MethodPost, "/instances/"+id+"/rename", renameRequest{Name: name}, nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return AsError(resp)
+}
+
+func (c *Client) ChangePassword(ctx context.Context, id, password string) error {
+	resp, err := c.Do(ctx, http.MethodPost, "/instances/"+id+"/change-password", passwordRequest{AdminPassword: password}, nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return AsError(resp)
+}
+
+func (c *Client) UpdateReverseDNS(ctx context.Context, id, dns, ip string) error {
+	resp, err := c.Do(ctx, http.MethodPost, "/instances/"+id+"/update-reverse-dns", reverseDNSRequest{ReverseDNS: dns, IPAddress: ip}, nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return AsError(resp)
+}
+
+func (c *Client) AddSecurityGroup(ctx context.Context, id, sgID string) error {
+	resp, err := c.Do(ctx, http.MethodPost, "/instances/"+id+"/add-security-group", securityGroupRequest{SecurityGroupID: sgID}, nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return AsError(resp)
+}
+
+func (c *Client) RemoveSecurityGroup(ctx context.Context, id, sgID string) error {
+	resp, err := c.Do(ctx, http.MethodPost, "/instances/"+id+"/remove-security-group", securityGroupRequest{SecurityGroupID: sgID}, nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return AsError(resp)
+}
+
+func (c *Client) ListSecurityGroups(ctx context.Context, id string) ([]SecurityGroup, error) {
+	resp, err := c.Do(ctx, http.MethodGet, "/instances/"+id+"/security-groups", nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if err := AsError(resp); err != nil {
+		return nil, err
+	}
+	var out securityGroupsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, fmt.Errorf("decode security groups: %w", err)
+	}
+	return out.Data, nil
+}
+
+func (c *Client) WaitInstanceStopped(ctx context.Context, id string, timeout, interval time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		inst, err := c.GetInstance(ctx, id)
+		if err == nil && (inst.Status == "SHUTOFF" || inst.Status == "STOPPED") {
+			return nil
+		}
+		time.Sleep(interval)
+	}
+	return fmt.Errorf("timed out waiting for instance %s to stop", id)
 }
