@@ -1,4 +1,4 @@
-module github.com/hashicorp/terraform-provider-scaffolding-framework
+module github.com/thaolaptrinh/terraform-provider-cloudfly
 
 go 1.25.8
 
