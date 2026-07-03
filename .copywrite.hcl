@@ -20,5 +20,8 @@ project {
 
     # GoReleaser tooling configuration
     ".goreleaser.yml",
+
+    # upstream CloudFly OpenAPI spec (vendor file, not our code)
+    "api/**",
   ]
 }
