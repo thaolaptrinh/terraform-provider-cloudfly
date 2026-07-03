@@ -4,6 +4,8 @@
 package provider
 
 import (
+	"context"
+	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
@@ -18,7 +20,43 @@ var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServe
 }
 
 func testAccPreCheck(t *testing.T) {
-	// You can add code here to run prior to any test case execution, for example assertions
-	// about the appropriate environment variables being set are common to see in a pre-check
-	// function.
+	if os.Getenv("CLOUDFLY_API_KEY") == "" {
+		t.Skip("CLOUDFLY_API_KEY not set; skipping acceptance test")
+	}
+}
+
+func TestBuildClient_FromConfig(t *testing.T) {
+	c, err := buildClient(context.Background(), "cfg-key", "", "env-key", "env-url")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c.APIKey != "cfg-key" {
+		t.Errorf("APIKey = %q, want cfg-key (config wins)", c.APIKey)
+	}
+}
+
+func TestBuildClient_EnvFallback(t *testing.T) {
+	c, err := buildClient(context.Background(), "", "", "env-key", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c.APIKey != "env-key" {
+		t.Errorf("APIKey = %q, want env-key fallback", c.APIKey)
+	}
+}
+
+func TestBuildClient_MissingKey(t *testing.T) {
+	if _, err := buildClient(context.Background(), "", "", "", ""); err == nil {
+		t.Fatal("expected error when no api_key source, got nil")
+	}
+}
+
+func TestBuildClient_EnvBaseURLFallback(t *testing.T) {
+	c, err := buildClient(context.Background(), "k", "", "k", "https://env.example/api")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c.BaseURL != "https://env.example/api" {
+		t.Errorf("BaseURL = %q, want env fallback", c.BaseURL)
+	}
 }
