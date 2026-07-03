@@ -10,15 +10,15 @@ The roadmap is organized around Terraform resources and capabilities rather than
 
 ## Provider
 
-- [ ] Provider configuration
-- [ ] API authentication
-- [ ] HTTP client
-- [ ] Diagnostics
-- [ ] Logging
-- [ ] Documentation generation
+- [x] Provider configuration
+- [x] API authentication
+- [x] HTTP client
+- [x] Diagnostics
+- [x] Logging
+- [x] Documentation generation
 - [ ] Acceptance testing
-- [ ] CI/CD
-- [ ] Automated releases
+- [x] CI/CD
+- [x] Automated releases
 
 ---
 
