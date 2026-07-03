@@ -533,7 +533,7 @@ func TestAttachInterface(t *testing.T) {
 			t.Errorf("unexpected: %s %s", r.Method, r.URL.Path)
 		}
 		body = make([]byte, r.ContentLength)
-		r.Body.Read(body)
+		_, _ = r.Body.Read(body)
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"detail":"ok"}`))
 	}))
@@ -566,7 +566,7 @@ func TestDetachInterface(t *testing.T) {
 			t.Errorf("unexpected: %s %s", r.Method, r.URL.Path)
 		}
 		body = make([]byte, r.ContentLength)
-		r.Body.Read(body)
+		_, _ = r.Body.Read(body)
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"detail":"ok"}`))
 	}))
