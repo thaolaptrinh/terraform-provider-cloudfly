@@ -5,7 +5,6 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
@@ -71,12 +70,6 @@ func (d *instanceMetricsDataSource) Read(ctx context.Context, req datasource.Rea
 		return
 	}
 
-	jsonBytes, err := json.Marshal(metrics.Data)
-	if err != nil {
-		resp.Diagnostics.AddError("Failed to marshal metrics data", err.Error())
-		return
-	}
-
-	config.Result = types.StringValue(string(jsonBytes))
+	config.Result = types.StringValue(string(metrics.Data))
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
 }

@@ -117,9 +117,9 @@ func (r *instanceResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 			"enable_private_network": schema.BoolAttribute{Optional: true, PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()}},
 			"auto_backup":            schema.BoolAttribute{Optional: true, PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()}},
 			"ssh_key_ids":            schema.ListAttribute{ElementType: types.Int64Type, Optional: true, PlanModifiers: []planmodifier.List{listplanmodifier.RequiresReplace()}},
-			"status":                 schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
-			"access_ipv4":            schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
-			"created":                schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
+			"status":                 schema.StringAttribute{Computed: true},
+			"access_ipv4":            schema.StringAttribute{Computed: true},
+			"created":                schema.StringAttribute{Computed: true},
 
 			"power_state": schema.StringAttribute{
 				MarkdownDescription: "Desired power state of the instance. Valid values: `running`, `stopped`.",
@@ -146,14 +146,14 @@ func (r *instanceResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				Optional:            true,
 			},
 
-			"access_ipv6":              schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
-			"username":                 schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
-			"task_state":               schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
-			"backup_server":            schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
+			"access_ipv6":              schema.StringAttribute{Computed: true},
+			"username":                 schema.StringAttribute{Computed: true},
+			"task_state":               schema.StringAttribute{Computed: true},
+			"backup_server":            schema.StringAttribute{Computed: true},
 			"stopped_by_cloudfly":      schema.BoolAttribute{Computed: true},
-			"current_month_traffic":    schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
-			"current_month_traffic_mb": schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
-			"remain_max_ip_addon":      schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
+			"current_month_traffic":    schema.StringAttribute{Computed: true},
+			"current_month_traffic_mb": schema.StringAttribute{Computed: true},
+			"remain_max_ip_addon":      schema.StringAttribute{Computed: true},
 		},
 	}
 }
@@ -221,123 +221,126 @@ func (r *instanceResource) Update(ctx context.Context, req resource.UpdateReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	if err := r.applyUpdate(ctx, &state, &plan); err != nil {
+		resp.Diagnostics.AddError("Failed to update instance", err.Error())
+		return
+	}
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+}
 
+// applyUpdate contains the update decision logic: power state, reboot,
+// password, rename, reverse DNS and security-group diff. It mutates plan
+// in place. Pure enough to unit-test without a live Terraform request.
+func (r *instanceResource) applyUpdate(ctx context.Context, state, plan *InstanceResourceModel) error {
 	id := state.ID.ValueString()
 
 	if !state.PowerState.Equal(plan.PowerState) {
 		switch plan.PowerState.ValueString() {
 		case "running":
 			if err := r.api.StartInstance(ctx, id); err != nil {
-				resp.Diagnostics.AddError("Failed to start instance", err.Error())
-				return
+				return fmt.Errorf("start instance: %w", err)
 			}
 			if err := r.api.WaitInstanceActive(ctx, id, instanceCreateTimeout, instancePollInterval); err != nil {
-				resp.Diagnostics.AddError("Instance did not become active after start", err.Error())
-				return
+				return fmt.Errorf("wait active after start: %w", err)
 			}
 		case "stopped":
 			if err := r.api.StopInstance(ctx, id); err != nil {
-				resp.Diagnostics.AddError("Failed to stop instance", err.Error())
-				return
+				return fmt.Errorf("stop instance: %w", err)
 			}
 			if err := r.api.WaitInstanceStopped(ctx, id, instanceCreateTimeout, instancePollInterval); err != nil {
-				resp.Diagnostics.AddError("Instance did not stop in time", err.Error())
-				return
+				return fmt.Errorf("wait stopped: %w", err)
 			}
 		default:
-			resp.Diagnostics.AddError("Invalid power_state",
-				fmt.Sprintf("power_state must be 'running' or 'stopped', got %q", plan.PowerState.ValueString()))
-			return
+			return fmt.Errorf("invalid power_state %q: must be running or stopped", plan.PowerState.ValueString())
 		}
 	}
 
 	if plan.Reboot.ValueBool() && !state.Reboot.ValueBool() {
 		if err := r.api.RebootInstance(ctx, id); err != nil {
-			resp.Diagnostics.AddError("Failed to reboot instance", err.Error())
-			return
+			return fmt.Errorf("reboot instance: %w", err)
 		}
 		if err := r.api.WaitInstanceActive(ctx, id, instanceCreateTimeout, instancePollInterval); err != nil {
-			resp.Diagnostics.AddError("Instance did not become active after reboot", err.Error())
-			return
+			return fmt.Errorf("wait active after reboot: %w", err)
 		}
-		plan.Reboot = types.BoolNull()
 	}
 
 	if !plan.AdminPassword.IsNull() && !plan.AdminPassword.IsUnknown() && plan.AdminPassword.ValueString() != "" {
 		if !state.AdminPassword.Equal(plan.AdminPassword) {
 			if err := r.api.ChangePassword(ctx, id, plan.AdminPassword.ValueString()); err != nil {
-				resp.Diagnostics.AddError("Failed to change password", err.Error())
-				return
+				return fmt.Errorf("change password: %w", err)
 			}
 		}
 	}
 
 	if !state.Name.Equal(plan.Name) {
 		if err := r.api.RenameInstance(ctx, id, plan.Name.ValueString()); err != nil {
-			resp.Diagnostics.AddError("Failed to rename instance", err.Error())
-			return
+			return fmt.Errorf("rename instance: %w", err)
 		}
 	}
 
 	if !state.ReverseDNS.Equal(plan.ReverseDNS) {
-		if err := r.api.UpdateReverseDNS(ctx, id, plan.ReverseDNS.ValueString(), state.AccessIPv4.ValueString()); err != nil {
-			resp.Diagnostics.AddError("Failed to update reverse DNS", err.Error())
-			return
+		newDNS := plan.ReverseDNS.ValueString()
+		if newDNS == "" {
+			// API rejects blank reverse_dns; skip when user clears it.
+		} else if err := r.api.UpdateReverseDNS(ctx, id, newDNS, state.AccessIPv4.ValueString()); err != nil {
+			return fmt.Errorf("update reverse DNS: %w", err)
 		}
 	}
 
 	if !state.SecurityGroupIDs.Equal(plan.SecurityGroupIDs) {
-		currentSGs, err := r.api.ListSecurityGroups(ctx, id)
-		if err != nil {
-			resp.Diagnostics.AddError("Failed to list security groups", err.Error())
-			return
-		}
-
-		currentIDs := make(map[string]bool)
-		for _, sg := range currentSGs {
-			currentIDs[sg.ID] = true
-		}
-
-		planIDs := make(map[string]bool)
-		if !plan.SecurityGroupIDs.IsNull() && !plan.SecurityGroupIDs.IsUnknown() {
-			var planList []string
-			diags := plan.SecurityGroupIDs.ElementsAs(ctx, &planList, false)
-			resp.Diagnostics.Append(diags...)
-			if resp.Diagnostics.HasError() {
-				return
-			}
-			for _, sgID := range planList {
-				planIDs[sgID] = true
-			}
-		}
-
-		for _, sg := range currentSGs {
-			if !planIDs[sg.ID] {
-				if err := r.api.RemoveSecurityGroup(ctx, id, sg.ID); err != nil {
-					resp.Diagnostics.AddError("Failed to remove security group", err.Error())
-					return
-				}
-			}
-		}
-
-		for sgID := range planIDs {
-			if !currentIDs[sgID] {
-				if err := r.api.AddSecurityGroup(ctx, id, sgID); err != nil {
-					resp.Diagnostics.AddError("Failed to add security group", err.Error())
-					return
-				}
-			}
+		if err := r.reconcileSecurityGroups(ctx, id, plan.SecurityGroupIDs); err != nil {
+			return err
 		}
 	}
 
 	inst, err := r.api.GetInstance(ctx, id)
 	if err != nil {
-		resp.Diagnostics.AddError("Failed to read instance after update", err.Error())
-		return
+		return fmt.Errorf("read instance after update: %w", err)
 	}
-	instanceToModel(inst, &plan)
+	instanceToModel(inst, plan)
+	return nil
+}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+// reconcileSecurityGroups brings the instance's attached security groups
+// in line with the plan list.
+func (r *instanceResource) reconcileSecurityGroups(ctx context.Context, id string, planList types.List) error {
+	currentSGs, err := r.api.ListSecurityGroups(ctx, id)
+	if err != nil {
+		return fmt.Errorf("list security groups: %w", err)
+	}
+
+	currentIDs := make(map[string]bool, len(currentSGs))
+	for _, sg := range currentSGs {
+		currentIDs[sg.ID] = true
+	}
+
+	planIDs := make(map[string]bool)
+	if !planList.IsNull() && !planList.IsUnknown() {
+		var ids []string
+		if diags := planList.ElementsAs(ctx, &ids, false); diags.HasError() {
+			return fmt.Errorf("decode security_group_ids: %v", diags.Errors())
+		}
+		for _, sgID := range ids {
+			planIDs[sgID] = true
+		}
+	}
+
+	for _, sg := range currentSGs {
+		if !planIDs[sg.ID] {
+			if err := r.api.RemoveSecurityGroup(ctx, id, sg.ID); err != nil {
+				return fmt.Errorf("remove security group %s: %w", sg.ID, err)
+			}
+		}
+	}
+
+	for sgID := range planIDs {
+		if !currentIDs[sgID] {
+			if err := r.api.AddSecurityGroup(ctx, id, sgID); err != nil {
+				return fmt.Errorf("add security group %s: %w", sgID, err)
+			}
+		}
+	}
+	return nil
 }
 
 func (r *instanceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -429,9 +432,9 @@ func instanceToModel(inst *client.Instance, m *InstanceResourceModel) {
 	m.AccessIPv6 = types.StringValue(inst.AccessIPv6)
 	m.Username = types.StringValue(inst.Username)
 	m.TaskState = types.StringValue(inst.TaskState)
-	m.BackupServer = types.StringValue(inst.BackupServer)
+	m.BackupServer = types.StringValue(string(inst.BackupServer))
 	m.StoppedByCloudfly = types.BoolValue(inst.StoppedByCloudfly)
-	m.CurrentMonthTraffic = types.StringValue(inst.CurrentMonthTraffic)
-	m.CurrentMonthTrafficMB = types.StringValue(inst.CurrentMonthTrafficMB)
-	m.RemainMaxIPAddon = types.StringValue(inst.RemainMaxIPAddon)
+	m.CurrentMonthTraffic = types.StringValue(string(inst.CurrentMonthTraffic))
+	m.CurrentMonthTrafficMB = types.StringValue(string(inst.CurrentMonthTrafficMB))
+	m.RemainMaxIPAddon = types.StringValue(string(inst.RemainMaxIPAddon))
 }

@@ -263,7 +263,7 @@ func TestListSecurityGroups(t *testing.T) {
 			t.Errorf("unexpected: %s %s", r.Method, r.URL.Path)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"data":[{"id":"sg-1","name":"default"},{"id":"sg-2","name":"web"}]}`))
+		_, _ = w.Write([]byte(`[{"id":"sg-1","name":"default"},{"id":"sg-2","name":"web"}]`))
 	}))
 	t.Cleanup(srv.Close)
 	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
@@ -384,8 +384,12 @@ func TestGetMetrics(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetMetrics error: %v", err)
 	}
-	if len(resp.Data) != 1 {
-		t.Errorf("expected 1 data point, got %d", len(resp.Data))
+	if resp.Data == nil {
+		t.Error("expected non-nil data")
+	}
+	s := string(resp.Data)
+	if s != `{"data":[{"timestamp":"2026-01-01","value":42.5}]}` {
+		t.Errorf("unexpected data: %s", s)
 	}
 }
 

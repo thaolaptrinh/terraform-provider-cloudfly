@@ -12,7 +12,7 @@ import (
 )
 
 type MetricsResponse struct {
-	Data []map[string]interface{} `json:"data"`
+	Data json.RawMessage
 }
 
 func (c *Client) GetMetrics(ctx context.Context, instanceID, metricType, startTime string) (*MetricsResponse, error) {
@@ -26,9 +26,9 @@ func (c *Client) GetMetrics(ctx context.Context, instanceID, metricType, startTi
 	if err := AsError(resp); err != nil {
 		return nil, err
 	}
-	var out MetricsResponse
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+	var raw json.RawMessage
+	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
 		return nil, fmt.Errorf("decode metrics: %w", err)
 	}
-	return &out, nil
+	return &MetricsResponse{Data: raw}, nil
 }

@@ -11,6 +11,26 @@ import (
 	"time"
 )
 
+type FlexString string
+
+func (f *FlexString) UnmarshalJSON(data []byte) error {
+	s := string(data)
+	if s == "null" || s == "" {
+		*f = ""
+		return nil
+	}
+	if data[0] == '"' {
+		var t string
+		if err := json.Unmarshal(data, &t); err != nil {
+			return err
+		}
+		*f = FlexString(t)
+		return nil
+	}
+	*f = FlexString(data)
+	return nil
+}
+
 type InstanceCreate struct {
 	Name          string `json:"name,omitempty"`
 	FlavorType    string `json:"flavor_type"`
@@ -26,24 +46,24 @@ type InstanceCreate struct {
 }
 
 type Instance struct {
-	ID                    string    `json:"id"`
-	DisplayName           string    `json:"display_name"`
-	Name                  string    `json:"name"`
-	Status                string    `json:"status"`
-	Region                RegionRef `json:"region"`
-	AccessIPv4            string    `json:"accessIPv4"`
-	AccessIPv6            string    `json:"accessIPv6"`
-	Created               string    `json:"created"`
-	Flavor                Flavor    `json:"flavor"`
-	Image                 Image     `json:"image"`
-	Username              string    `json:"username"`
-	TaskState             string    `json:"task_state"`
-	BackupServer          string    `json:"backup_server"`
-	HostName              string    `json:"host_name"`
-	StoppedByCloudfly     bool      `json:"stopped_by_cloudfly"`
-	CurrentMonthTraffic   string    `json:"current_month_traffic"`
-	CurrentMonthTrafficMB string    `json:"current_month_traffic_mb"`
-	RemainMaxIPAddon      string    `json:"remain_max_ip_addon"`
+	ID                    string     `json:"id"`
+	DisplayName           string     `json:"display_name"`
+	Name                  string     `json:"name"`
+	Status                string     `json:"status"`
+	Region                RegionRef  `json:"region"`
+	AccessIPv4            string     `json:"accessIPv4"`
+	AccessIPv6            string     `json:"accessIPv6"`
+	Created               string     `json:"created"`
+	Flavor                Flavor     `json:"flavor"`
+	Image                 Image      `json:"image"`
+	Username              string     `json:"username"`
+	TaskState             string     `json:"task_state"`
+	BackupServer          FlexString `json:"backup_server"`
+	HostName              string     `json:"host_name"`
+	StoppedByCloudfly     bool       `json:"stopped_by_cloudfly"`
+	CurrentMonthTraffic   FlexString `json:"current_month_traffic"`
+	CurrentMonthTrafficMB FlexString `json:"current_month_traffic_mb"`
+	RemainMaxIPAddon      FlexString `json:"remain_max_ip_addon"`
 }
 
 // RegionRef is the nested region object returned by the instances list/detail
@@ -75,10 +95,6 @@ type Image struct {
 type SecurityGroup struct {
 	ID   string `json:"id"`
 	Name string `json:"name,omitempty"`
-}
-
-type securityGroupsResponse struct {
-	Data []SecurityGroup `json:"data"`
 }
 
 type rebootRequest struct {
@@ -316,11 +332,11 @@ func (c *Client) ListSecurityGroups(ctx context.Context, id string) ([]SecurityG
 	if err := AsError(resp); err != nil {
 		return nil, err
 	}
-	var out securityGroupsResponse
+	var out []SecurityGroup
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return nil, fmt.Errorf("decode security groups: %w", err)
 	}
-	return out.Data, nil
+	return out, nil
 }
 
 func (c *Client) WaitInstanceStopped(ctx context.Context, id string, timeout, interval time.Duration) error {

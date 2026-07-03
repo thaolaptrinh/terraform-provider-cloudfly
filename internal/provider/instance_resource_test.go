@@ -24,11 +24,11 @@ func TestInstanceToModel(t *testing.T) {
 		Image:                 client.Image{Name: "CentOS-7.9"},
 		Username:              "root",
 		TaskState:             "spawning",
-		BackupServer:          "active",
+		BackupServer:          client.FlexString("active"),
 		StoppedByCloudfly:     false,
-		CurrentMonthTraffic:   "100",
-		CurrentMonthTrafficMB: "100",
-		RemainMaxIPAddon:      "5",
+		CurrentMonthTraffic:   client.FlexString("100"),
+		CurrentMonthTrafficMB: client.FlexString("100"),
+		RemainMaxIPAddon:      client.FlexString("5"),
 	}, m)
 	if m.ID.ValueString() != "i9" || m.Status.ValueString() != "ACTIVE" || m.AccessIPv4.ValueString() != "1.2.3.4" {
 		t.Fatalf("computed wrong: %+v", m)

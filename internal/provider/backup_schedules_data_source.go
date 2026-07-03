@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/thaolaptrinh/terraform-provider-cloudfly/internal/client"
 )
@@ -91,24 +92,7 @@ func (d *backupSchedulesDataSource) Read(ctx context.Context, req datasource.Rea
 		return
 	}
 
-	scheduleObjs := make([]attr.Value, 0, len(schedules))
-	for _, s := range schedules {
-		obj, diags := types.ObjectValue(backupScheduleObjectType.AttrTypes, map[string]attr.Value{
-			"id":          types.Int64Value(s.ID),
-			"instance":    types.StringValue(s.Instance),
-			"rotation":    types.Int64Value(s.Rotation),
-			"run_at":      types.StringValue(s.RunAt),
-			"backup_name": types.StringValue(s.BackupName),
-			"backup_type": types.StringValue(s.BackupType),
-		})
-		resp.Diagnostics.Append(diags...)
-		scheduleObjs = append(scheduleObjs, obj)
-	}
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	listValue, diags := types.ListValue(backupScheduleObjectType, scheduleObjs)
+	listValue, diags := schedulesToList(ctx, schedules)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -116,4 +100,27 @@ func (d *backupSchedulesDataSource) Read(ctx context.Context, req datasource.Rea
 
 	config.Schedules = listValue
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
+}
+
+// schedulesToList converts a slice of client.BackupSchedule into a
+// framework-compatible types.List of nested objects. Pure helper, tested
+// directly without a live datasource.Read.
+func schedulesToList(ctx context.Context, schedules []client.BackupSchedule) (types.List, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	scheduleObjs := make([]attr.Value, 0, len(schedules))
+	for _, s := range schedules {
+		obj, d := types.ObjectValue(backupScheduleObjectType.AttrTypes, map[string]attr.Value{
+			"id":          types.Int64Value(s.ID),
+			"instance":    types.StringValue(s.Instance),
+			"rotation":    types.Int64Value(s.Rotation),
+			"run_at":      types.StringValue(s.RunAt),
+			"backup_name": types.StringValue(s.BackupName),
+			"backup_type": types.StringValue(s.BackupType),
+		})
+		diags.Append(d...)
+		scheduleObjs = append(scheduleObjs, obj)
+	}
+	listValue, d := types.ListValue(backupScheduleObjectType, scheduleObjs)
+	diags.Append(d...)
+	return listValue, diags
 }

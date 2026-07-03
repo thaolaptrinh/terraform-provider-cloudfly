@@ -17,7 +17,7 @@ func TestSnapshotToModel(t *testing.T) {
 		Name:         "my-snap",
 		Status:       "available",
 		Size:         1024,
-		SizeInGB:     "1",
+		SizeInGB:     client.FlexString("1"),
 		Type:         "snapshot",
 		OSDistro:     "ubuntu",
 		CreatedAt:    "2026-01-01",
@@ -29,7 +29,6 @@ func TestSnapshotToModel(t *testing.T) {
 
 	want := &SnapshotResourceModel{}
 	want.ID = types.StringValue("snap-1")
-	want.Name = types.StringValue("my-snap")
 	want.Status = types.StringValue("available")
 	want.Size = types.Int64Value(1024)
 	want.SizeInGB = types.StringValue("1")

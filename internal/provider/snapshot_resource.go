@@ -6,6 +6,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -99,39 +100,40 @@ func (r *snapshotResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	deadline := time.Now().Add(snapshotCreateTimeout)
-	var found *client.Snapshot
-	for time.Now().Before(deadline) {
-		select {
-		case <-ctx.Done():
-			resp.Diagnostics.AddError("Context cancelled", ctx.Err().Error())
-			return
-		default:
-		}
-		snaps, err := r.api.ListSnapshots(ctx, instID)
-		if err != nil {
-			resp.Diagnostics.AddError("Failed to list snapshots after create", err.Error())
-			return
-		}
-		for i := range snaps {
-			if snaps[i].Name == snapName {
-				found = &snaps[i]
-				break
-			}
-		}
-		if found != nil {
-			break
-		}
-		time.Sleep(snapshotPollInterval)
-	}
-
-	if found == nil {
-		resp.Diagnostics.AddError("Snapshot did not appear", fmt.Sprintf("Snapshot %q was not found after creation", snapName))
+	found, err := waitForSnapshot(ctx, r.api, instID, snapName, snapshotCreateTimeout, snapshotPollInterval)
+	if err != nil {
+		resp.Diagnostics.AddError("Snapshot did not appear", err.Error())
 		return
 	}
 
 	snapshotToModel(found, &plan)
+	plan.Name = types.StringValue(snapName)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+}
+
+// waitForSnapshot polls ListSnapshots until a snapshot whose Name contains
+// snapName appears, the deadline expires, or ctx is cancelled. Pure enough
+// to unit-test against a mock SnapshotAPI.
+func waitForSnapshot(ctx context.Context, api SnapshotAPI, instID, snapName string, timeout, interval time.Duration) (*client.Snapshot, error) {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+		snaps, err := api.ListSnapshots(ctx, instID)
+		if err != nil {
+			return nil, fmt.Errorf("list snapshots: %w", err)
+		}
+		for i := range snaps {
+			if strings.Contains(snaps[i].Name, snapName) {
+				return &snaps[i], nil
+			}
+		}
+		time.Sleep(interval)
+	}
+	return nil, fmt.Errorf("snapshot %q not found within %s", snapName, timeout)
 }
 
 func (r *snapshotResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -164,10 +166,9 @@ func (r *snapshotResource) ImportState(ctx context.Context, req resource.ImportS
 
 func snapshotToModel(snap *client.Snapshot, m *SnapshotResourceModel) {
 	m.ID = types.StringValue(snap.ID)
-	m.Name = types.StringValue(snap.Name)
 	m.Status = types.StringValue(snap.Status)
 	m.Size = types.Int64Value(snap.Size)
-	m.SizeInGB = types.StringValue(snap.SizeInGB)
+	m.SizeInGB = types.StringValue(string(snap.SizeInGB))
 	m.Type = types.StringValue(snap.Type)
 	m.OSDistro = types.StringValue(snap.OSDistro)
 	m.CreatedAt = types.StringValue(snap.CreatedAt)

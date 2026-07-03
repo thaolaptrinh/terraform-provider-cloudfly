@@ -12,16 +12,16 @@ import (
 
 // Snapshot represents a CloudFly instance snapshot.
 type Snapshot struct {
-	ID           string `json:"id"`
-	Name         string `json:"name"`
-	Status       string `json:"status"`
-	Size         int64  `json:"size"`
-	SizeInGB     string `json:"size_in_gb"`
-	Type         string `json:"type"`
-	OSDistro     string `json:"os_distro"`
-	CreatedAt    string `json:"created_at"`
-	InstanceUUID string `json:"instance_uuid"`
-	Description  string `json:"description,omitempty"`
+	ID           string     `json:"id"`
+	Name         string     `json:"name"`
+	Status       string     `json:"status"`
+	Size         int64      `json:"size"`
+	SizeInGB     FlexString `json:"size_in_gb"`
+	Type         string     `json:"type"`
+	OSDistro     string     `json:"os_distro"`
+	CreatedAt    string     `json:"created_at"`
+	InstanceUUID string     `json:"instance_uuid"`
+	Description  string     `json:"description,omitempty"`
 }
 
 // SnapshotCreate is the request body for creating a snapshot.
