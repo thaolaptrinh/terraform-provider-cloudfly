@@ -5,6 +5,7 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
@@ -243,6 +244,10 @@ func (r *instanceResource) Update(ctx context.Context, req resource.UpdateReques
 				resp.Diagnostics.AddError("Instance did not stop in time", err.Error())
 				return
 			}
+		default:
+			resp.Diagnostics.AddError("Invalid power_state",
+				fmt.Sprintf("power_state must be 'running' or 'stopped', got %q", plan.PowerState.ValueString()))
+			return
 		}
 	}
 
@@ -255,6 +260,7 @@ func (r *instanceResource) Update(ctx context.Context, req resource.UpdateReques
 			resp.Diagnostics.AddError("Instance did not become active after reboot", err.Error())
 			return
 		}
+		plan.Reboot = types.BoolNull()
 	}
 
 	if !plan.AdminPassword.IsNull() && !plan.AdminPassword.IsUnknown() && plan.AdminPassword.ValueString() != "" {
