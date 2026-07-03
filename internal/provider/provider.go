@@ -7,10 +7,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/hashicorp/terraform-plugin-framework/action"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
-	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
-	"github.com/hashicorp/terraform-plugin-framework/function"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -19,9 +16,6 @@ import (
 
 // Ensure CloudFlyProvider satisfies various provider interfaces.
 var _ provider.Provider = &CloudFlyProvider{}
-var _ provider.ProviderWithFunctions = &CloudFlyProvider{}
-var _ provider.ProviderWithEphemeralResources = &CloudFlyProvider{}
-var _ provider.ProviderWithActions = &CloudFlyProvider{}
 
 // CloudFlyProvider defines the provider implementation.
 type CloudFlyProvider struct {
@@ -71,33 +65,11 @@ func (p *CloudFlyProvider) Configure(ctx context.Context, req provider.Configure
 }
 
 func (p *CloudFlyProvider) Resources(ctx context.Context) []func() resource.Resource {
-	return []func() resource.Resource{
-		NewExampleResource,
-	}
-}
-
-func (p *CloudFlyProvider) EphemeralResources(ctx context.Context) []func() ephemeral.EphemeralResource {
-	return []func() ephemeral.EphemeralResource{
-		NewExampleEphemeralResource,
-	}
+	return nil
 }
 
 func (p *CloudFlyProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
-	return []func() datasource.DataSource{
-		NewExampleDataSource,
-	}
-}
-
-func (p *CloudFlyProvider) Functions(ctx context.Context) []func() function.Function {
-	return []func() function.Function{
-		NewExampleFunction,
-	}
-}
-
-func (p *CloudFlyProvider) Actions(ctx context.Context) []func() action.Action {
-	return []func() action.Action{
-		NewExampleAction,
-	}
+	return nil
 }
 
 func New(version string) func() provider.Provider {
