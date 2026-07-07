@@ -25,9 +25,11 @@ type mockInstancesAPI struct {
 	renameCalls, passwordCalls              int
 	reverseCalls, addSGCalls, removeSGCalls int
 	listSGCalls                             int
+	getInstanceOptionsCalls                 int
 
 	// Return values.
 	getInstance                        *client.Instance
+	getInstanceOptions                 []client.InstanceOption
 	currentSGs                         []client.SecurityGroup
 	startErr, stopErr, rebootErr       error
 	renameErr, passwordErr             error
@@ -35,6 +37,7 @@ type mockInstancesAPI struct {
 	addSGErr, removeSGErr              error
 	listSGErr                          error
 	getInstanceErr                     error
+	getInstanceOptionsErr              error
 	waitActiveErr, waitStopErr         error
 	enableIPv6RangeCalls               int
 	enableIPv6RangeID                  string
@@ -49,11 +52,18 @@ type mockInstancesAPI struct {
 func (m *mockInstancesAPI) CreateInstance(context.Context, client.InstanceCreate) (string, error) {
 	return "", nil
 }
-func (m *mockInstancesAPI) GetInstance(context.Context, string) (*client.Instance, error) {
+func (m *mockInstancesAPI) GetInstance(ctx context.Context, id string) (*client.Instance, error) {
 	if m.getInstanceErr != nil {
 		return nil, m.getInstanceErr
 	}
 	return m.getInstance, nil
+}
+func (m *mockInstancesAPI) GetInstanceOptions(context.Context) ([]client.InstanceOption, error) {
+	m.getInstanceOptionsCalls++
+	if m.getInstanceOptionsErr != nil {
+		return nil, m.getInstanceOptionsErr
+	}
+	return m.getInstanceOptions, nil
 }
 func (m *mockInstancesAPI) DeleteInstance(context.Context, string) error { return nil }
 func (m *mockInstancesAPI) WaitInstanceActive(context.Context, string, time.Duration, time.Duration) error {
