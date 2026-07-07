@@ -30,10 +30,10 @@ resource "cloudfly_instance" "example" {
 ### Required
 
 - `disk` (Number)
-- `flavor_type` (String)
+- `flavor_type` (String) CloudFly flavor group, e.g. `Standard`, `Premium`. Availability is region-specific: `HN-Cloud01` currently exposes `Standard` configs, `CLOUD-HN02` exposes `Premium` configs. Use the `cloudfly_instance_options` data source to list valid groups per region.
 - `image_name` (String)
 - `ram` (Number)
-- `region` (String)
+- `region` (String) CloudFly region, e.g. `CLOUD-HN02`, `HN-Cloud01`, `HCM-CLOUD01`, `CLOUD-DN01`. Run `terraform plan` after switching regions: CloudFly's backend rejects region+flavor_type combinations that have no matching catalog entry (e.g. `Standard` is not available in `CLOUD-HN02`). Use the `cloudfly_instance_options` data source to discover valid combinations.
 - `vcpus` (Number)
 
 ### Optional

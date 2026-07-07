@@ -6,10 +6,11 @@ package provider
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
-	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -34,6 +35,7 @@ const (
 type InstancesAPI interface {
 	CreateInstance(ctx context.Context, req client.InstanceCreate) (string, error)
 	GetInstance(ctx context.Context, id string) (*client.Instance, error)
+	GetInstanceOptions(ctx context.Context) ([]client.InstanceOption, error)
 	DeleteInstance(ctx context.Context, id string) error
 	WaitInstanceActive(ctx context.Context, id string, timeout, interval time.Duration) error
 	WaitInstanceDeleted(ctx context.Context, id string, timeout, interval time.Duration) error
@@ -105,13 +107,18 @@ func (r *instanceResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 			"id":   schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
 			"name": schema.StringAttribute{Optional: true},
 			"region": schema.StringAttribute{
+				MarkdownDescription: "CloudFly region, e.g. `CLOUD-HN02`, `HN-Cloud01`, `HCM-CLOUD01`, `CLOUD-DN01`. " +
+					"Run `terraform plan` after switching regions: CloudFly's backend rejects region+flavor_type " +
+					"combinations that have no matching catalog entry (e.g. `Standard` is not available in `CLOUD-HN02`). " +
+					"Use the `cloudfly_instance_options` data source to discover valid combinations.",
 				Required:      true,
-				Validators:    []validator.String{stringvalidator.OneOf("CLOUD-HN02", "HN-Cloud01")},
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"flavor_type": schema.StringAttribute{
+				MarkdownDescription: "CloudFly flavor group, e.g. `Standard`, `Premium`. Availability is region-specific: " +
+					"`HN-Cloud01` currently exposes `Standard` configs, `CLOUD-HN02` exposes `Premium` configs. " +
+					"Use the `cloudfly_instance_options` data source to list valid groups per region.",
 				Required:      true,
-				Validators:    []validator.String{stringvalidator.OneOf("Standard", "Premium")},
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"image_name":             schema.StringAttribute{Required: true, PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()}},
@@ -193,7 +200,7 @@ func (r *instanceResource) Create(ctx context.Context, req resource.CreateReques
 	}
 	id, err := r.api.CreateInstance(ctx, createReq)
 	if err != nil {
-		resp.Diagnostics.AddError("Failed to create instance", err.Error())
+		resp.Diagnostics.AddError("Failed to create instance", enrichCreateError(ctx, r.api, createReq.Region, createReq.FlavorType, err))
 		return
 	}
 	if err := r.api.WaitInstanceActive(ctx, id, instanceCreateTimeout, instancePollInterval); err != nil {
@@ -517,4 +524,76 @@ func instanceToModel(inst *client.Instance, m *InstanceResourceModel) {
 	m.CurrentMonthTraffic = types.StringValue(string(inst.CurrentMonthTraffic))
 	m.CurrentMonthTrafficMB = types.StringValue(string(inst.CurrentMonthTrafficMB))
 	m.RemainMaxIPAddon = types.StringValue(string(inst.RemainMaxIPAddon))
+}
+
+// flavorGroupUnavailableSnippet is the substring CloudFly's API returns (as
+// the `detail` field of a 400 response) when the requested flavor group has
+// no catalog entries in the requested region. Detected by enrichCreateError
+// to provide a more actionable diagnostic.
+const flavorGroupUnavailableSnippet = "flavor group is not available in this region"
+
+// enrichCreateError inspects an error returned by CreateInstance and, when
+// it recognises the "flavor group not available in region" failure, queries
+// the catalog to produce a diagnostic with the available alternatives. Any
+// failure during enrichment (e.g. the catalog call also fails) falls back to
+// the original error message verbatim so we never mask the real cause.
+func enrichCreateError(ctx context.Context, api InstancesAPI, region, flavorType string, createErr error) string {
+	apiErr, ok := createErr.(*client.ErrorResponse)
+	if !ok || apiErr.StatusCode != 400 || !strings.Contains(apiErr.Body, flavorGroupUnavailableSnippet) {
+		return createErr.Error()
+	}
+
+	opts, err := api.GetInstanceOptions(ctx)
+	if err != nil {
+		return createErr.Error()
+	}
+
+	// Build region -> set of flavor group names from the catalog.
+	groupsByRegion := map[string]map[string]struct{}{}
+	for _, opt := range opts {
+		r := opt.Region.Name
+		if groupsByRegion[r] == nil {
+			groupsByRegion[r] = map[string]struct{}{}
+		}
+		groupsByRegion[r][opt.FlavorGroup.Name] = struct{}{}
+	}
+
+	var (
+		requestedGroups []string
+		otherRegions    []string
+		seenRegion      = map[string]struct{}{}
+	)
+	if groups, ok := groupsByRegion[region]; ok {
+		for g := range groups {
+			requestedGroups = append(requestedGroups, g)
+		}
+		sort.Strings(requestedGroups)
+	}
+	for r, groups := range groupsByRegion {
+		if r == region {
+			continue
+		}
+		if _, ok := groups[flavorType]; !ok {
+			continue
+		}
+		if _, seen := seenRegion[r]; !seen {
+			otherRegions = append(otherRegions, r)
+			seenRegion[r] = struct{}{}
+		}
+	}
+	sort.Strings(otherRegions)
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s\n\n", createErr.Error())
+	fmt.Fprintf(&b, "Region %q does not have any %q flavor group configs.\n", region, flavorType)
+	if len(requestedGroups) > 0 {
+		fmt.Fprintf(&b, "Flavor groups available in %q: %s.\n", region, strings.Join(requestedGroups, ", "))
+	} else {
+		fmt.Fprintf(&b, "No flavor groups were returned for region %q — the region may be unavailable for your account.\n", region)
+	}
+	if len(otherRegions) > 0 {
+		fmt.Fprintf(&b, "Regions where %q IS available: %s.\n", flavorType, strings.Join(otherRegions, ", "))
+	}
+	b.WriteString("Use the `cloudfly_instance_options` data source to list valid combinations.")
+	return b.String()
 }
