@@ -19,7 +19,7 @@ func TestCreateBackupSchedule(t *testing.T) {
 		_, _ = w.Write([]byte(`{"detail":"ok"}`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	err := c.CreateBackupSchedule(context.Background(), "i1", BackupScheduleCreate{Name: "daily", BackupType: "auto"})
 	if err != nil {
 		t.Fatalf("CreateBackupSchedule error: %v", err)
@@ -35,7 +35,7 @@ func TestCreateBackupScheduleError(t *testing.T) {
 		_, _ = w.Write([]byte(`{"detail":"bad request"}`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	err := c.CreateBackupSchedule(context.Background(), "i1", BackupScheduleCreate{BackupType: "invalid"})
 	if err == nil {
 		t.Fatal("expected error from 400, got nil")
@@ -50,7 +50,7 @@ func TestGetBackupSchedule(t *testing.T) {
 		_, _ = w.Write([]byte(`[{"id":42,"instance":"i1","rotation":7,"run_at":"03:00","backup_name":"daily","backup_type":"auto"}]`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	schedule, err := c.GetBackupSchedule(context.Background(), "i1", "42")
 	if err != nil {
 		t.Fatalf("GetBackupSchedule error: %v", err)
@@ -69,7 +69,7 @@ func TestGetBackupScheduleNotFound(t *testing.T) {
 		_, _ = w.Write([]byte(`[{"id":1,"instance":"i1","backup_type":"weekly"}]`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	_, err := c.GetBackupSchedule(context.Background(), "i1", "999")
 	if err == nil {
 		t.Fatal("expected not-found error, got nil")
@@ -77,7 +77,7 @@ func TestGetBackupScheduleNotFound(t *testing.T) {
 }
 
 func TestGetBackupScheduleInvalidID(t *testing.T) {
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: "http://localhost"})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: "http://localhost"})
 	_, err := c.GetBackupSchedule(context.Background(), "i1", "abc")
 	if err == nil {
 		t.Fatal("expected parse error, got nil")
@@ -92,7 +92,7 @@ func TestDeleteBackupSchedule(t *testing.T) {
 		_, _ = w.Write([]byte(`{"detail":"deleted"}`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	err := c.DeleteBackupSchedule(context.Background(), 42)
 	if err != nil {
 		t.Fatalf("DeleteBackupSchedule error: %v", err)
@@ -108,7 +108,7 @@ func TestDeleteBackupScheduleError(t *testing.T) {
 		_, _ = w.Write([]byte(`{"detail":"not found"}`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	err := c.DeleteBackupSchedule(context.Background(), 999)
 	if err == nil {
 		t.Fatal("expected error from 404, got nil")

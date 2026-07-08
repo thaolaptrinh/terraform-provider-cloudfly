@@ -23,20 +23,20 @@ const (
 )
 
 type Config struct {
-	APIKey     string
+	APIToken   string
 	BaseURL    string
 	HTTPClient *http.Client // optional override (tests/advanced)
 }
 
 type Client struct {
 	BaseURL    string
-	APIKey     string
+	APIToken   string
 	HTTPClient *http.Client
 }
 
 func NewClient(ctx context.Context, cfg Config) (*Client, error) {
-	if strings.TrimSpace(cfg.APIKey) == "" {
-		return nil, fmt.Errorf("api_key is required")
+	if strings.TrimSpace(cfg.APIToken) == "" {
+		return nil, fmt.Errorf("api_token is required")
 	}
 	baseURL := strings.TrimRight(strings.TrimSpace(cfg.BaseURL), "/")
 	if baseURL == "" {
@@ -60,7 +60,7 @@ func NewClient(ctx context.Context, cfg Config) (*Client, error) {
 
 	return &Client{
 		BaseURL:    baseURL,
-		APIKey:     cfg.APIKey,
+		APIToken:   cfg.APIToken,
 		HTTPClient: std,
 	}, nil
 }
@@ -80,7 +80,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body interface{}, 
 	if err != nil {
 		return nil, fmt.Errorf("build request: %w", err)
 	}
-	req.Header.Set("Authorization", "Token "+c.APIKey)
+	req.Header.Set("Authorization", "Token "+c.APIToken)
 	req.Header.Set("Accept", "application/json")
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")

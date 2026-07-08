@@ -25,8 +25,8 @@ type CloudFlyProvider struct {
 }
 
 type CloudFlyProviderModel struct {
-	APIKey  types.String `tfsdk:"api_key"`
-	BaseURL types.String `tfsdk:"base_url"`
+	APIToken types.String `tfsdk:"api_token"`
+	BaseURL  types.String `tfsdk:"base_url"`
 }
 
 func (p *CloudFlyProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
@@ -38,8 +38,8 @@ func (p *CloudFlyProvider) Schema(ctx context.Context, req provider.SchemaReques
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "The CloudFly provider is used to interact with resources supported by CloudFly.",
 		Attributes: map[string]schema.Attribute{
-			"api_key": schema.StringAttribute{
-				MarkdownDescription: "CloudFly API key. May also be set via the `CLOUDFLY_API_KEY` environment variable.",
+			"api_token": schema.StringAttribute{
+				MarkdownDescription: "CloudFly API access token. May also be set via the `CLOUDFLY_API_TOKEN` environment variable.",
 				Optional:            true,
 				Sensitive:           true,
 			},
@@ -58,8 +58,8 @@ func (p *CloudFlyProvider) Configure(ctx context.Context, req provider.Configure
 		return
 	}
 
-	cfgKey := stringValue(data.APIKey)
-	envKey := os.Getenv("CLOUDFLY_API_KEY")
+	cfgKey := stringValue(data.APIToken)
+	envKey := os.Getenv("CLOUDFLY_API_TOKEN")
 	cfgBase := stringValue(data.BaseURL)
 	envBase := os.Getenv("CLOUDFLY_BASE_URL")
 
@@ -67,7 +67,7 @@ func (p *CloudFlyProvider) Configure(ctx context.Context, req provider.Configure
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to configure CloudFly client",
-			fmt.Sprintf("A valid api_key is required. Set the `api_key` argument or the CLOUDFLY_API_KEY environment variable. Underlying error: %v", err),
+			fmt.Sprintf("A valid api_token is required. Set the `api_token` argument or the CLOUDFLY_API_TOKEN environment variable. Underlying error: %v", err),
 		)
 		return
 	}
@@ -111,10 +111,10 @@ func New(version string) func() provider.Provider {
 func buildClient(ctx context.Context, cfgKey, cfgBase, envKey, envBase string) (*client.Client, error) {
 	apiKey := firstNonEmpty(cfgKey, envKey)
 	if apiKey == "" {
-		return nil, fmt.Errorf("api_key not provided in config or CLOUDFLY_API_KEY env var")
+		return nil, fmt.Errorf("api_token not provided in config or CLOUDFLY_API_TOKEN env var")
 	}
 	baseURL := firstNonEmpty(cfgBase, envBase)
-	return client.NewClient(ctx, client.Config{APIKey: apiKey, BaseURL: baseURL})
+	return client.NewClient(ctx, client.Config{APIToken: apiKey, BaseURL: baseURL})
 }
 
 func stringValue(s types.String) string {

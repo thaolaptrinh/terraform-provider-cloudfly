@@ -1,3 +1,10 @@
+## 0.2.0 (Unreleased)
+
+BREAKING CHANGES:
+
+* **Provider argument `api_key` renamed to `api_token`** — the credential passed in the `Authorization: Token` header is an access token, not a key. Update `provider "cloudfly" { api_token = ... }` and `var.cloudfly_api_key` → `var.cloudfly_api_token`.
+* **Environment variable `CLOUDFLY_API_KEY` renamed to `CLOUDFLY_API_TOKEN`.**
+
 ## 0.1.0 (Unreleased)
 
 FEATURES:

@@ -20,7 +20,7 @@ func TestListSSHKeys(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	keys, err := c.ListSSHKeys(context.Background())
 	if err != nil {
 		t.Fatalf("ListSSHKeys error: %v", err)
@@ -36,7 +36,7 @@ func TestListSSHKeys_HTTPError(t *testing.T) {
 		_, _ = w.Write([]byte(`{"detail":"Invalid Token."}`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	if _, err := c.ListSSHKeys(context.Background()); err == nil {
 		t.Fatal("expected error on 401")
 	}

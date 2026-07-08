@@ -20,8 +20,8 @@ var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServe
 }
 
 func testAccPreCheck(t *testing.T) {
-	if os.Getenv("CLOUDFLY_API_KEY") == "" {
-		t.Skip("CLOUDFLY_API_KEY not set; skipping acceptance test")
+	if os.Getenv("CLOUDFLY_API_TOKEN") == "" {
+		t.Skip("CLOUDFLY_API_TOKEN not set; skipping acceptance test")
 	}
 }
 
@@ -30,8 +30,8 @@ func TestBuildClient_FromConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if c.APIKey != "cfg-key" {
-		t.Errorf("APIKey = %q, want cfg-key (config wins)", c.APIKey)
+	if c.APIToken != "cfg-key" {
+		t.Errorf("APIToken = %q, want cfg-key (config wins)", c.APIToken)
 	}
 }
 
@@ -40,14 +40,14 @@ func TestBuildClient_EnvFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if c.APIKey != "env-key" {
-		t.Errorf("APIKey = %q, want env-key fallback", c.APIKey)
+	if c.APIToken != "env-key" {
+		t.Errorf("APIToken = %q, want env-key fallback", c.APIToken)
 	}
 }
 
-func TestBuildClient_MissingKey(t *testing.T) {
+func TestBuildClient_MissingToken(t *testing.T) {
 	if _, err := buildClient(context.Background(), "", "", "", ""); err == nil {
-		t.Fatal("expected error when no api_key source, got nil")
+		t.Fatal("expected error when no api_token source, got nil")
 	}
 }
 

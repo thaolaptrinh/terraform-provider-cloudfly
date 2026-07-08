@@ -42,7 +42,7 @@ terraform {
   required_providers {
     cloudfly = {
       source  = "thaolaptrinh/cloudfly"
-      version = "~> 0.1"
+      version = "~> 0.2"
     }
   }
 }
@@ -54,13 +54,13 @@ terraform {
 
 ```hcl
 provider "cloudfly" {
-  api_key = var.cloudfly_api_key
+  api_token = var.cloudfly_api_token
 }
 ```
 
 | Argument | Required | Description |
 |---|---|---|
-| `api_key` | Yes | CloudFly API key. Can also be set via `CLOUDFLY_API_KEY` environment variable. |
+| `api_token` | Yes | CloudFly API access token. Can also be set via `CLOUDFLY_API_TOKEN` environment variable. |
 | `base_url` | No | API base URL. Defaults to `https://api.cloudfly.vn/backend/api`. Can also be set via `CLOUDFLY_BASE_URL`. |
 
 ---

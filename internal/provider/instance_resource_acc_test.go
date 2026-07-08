@@ -13,7 +13,7 @@ import (
 
 // TestAccInstance_basic verifies the cloudfly_instance resource can be created,
 // read, and destroyed against the live CloudFly API. Skipped unless both
-// CLOUDFLY_API_KEY and CLOUDFLY_ACC_CREATE are set (creation costs money).
+// CLOUDFLY_API_TOKEN and CLOUDFLY_ACC_CREATE are set (creation costs money).
 func TestAccInstance_basic(t *testing.T) {
 	testAccPreCheck(t)
 	if os.Getenv("CLOUDFLY_ACC_CREATE") == "" {

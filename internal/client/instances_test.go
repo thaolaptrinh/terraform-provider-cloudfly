@@ -33,7 +33,7 @@ func TestCreateInstance_PollsSearchByName(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	id, err := c.CreateInstance(context.Background(), InstanceCreate{
 		Name: "myinst", FlavorType: "Standard", Region: "HN-Cloud01", ImageName: "CentOS-7.9",
 		RAM: 1, Disk: 20, VCPUs: 1,
@@ -56,7 +56,7 @@ func TestGetInstance(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	inst, err := c.GetInstance(context.Background(), "i9")
 	if err != nil {
 		t.Fatalf("GetInstance error: %v", err)
@@ -76,7 +76,7 @@ func TestDeleteInstance(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	if err := c.DeleteInstance(context.Background(), "i1"); err != nil {
 		t.Fatalf("DeleteInstance error: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestWaitInstanceActive_PollsUntilActive(t *testing.T) {
 		_, _ = w.Write([]byte(`{"id":"i1","status":"ACTIVE"}`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	if err := c.WaitInstanceActive(context.Background(), "i1", 1*time.Second, 1*time.Millisecond); err != nil {
 		t.Fatalf("expected nil, got %v", err)
 	}
@@ -108,7 +108,7 @@ func TestWaitInstanceActive_Timeout(t *testing.T) {
 		_, _ = w.Write([]byte(`{"id":"i1","status":"BUILDING"}`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	err := c.WaitInstanceActive(context.Background(), "i1", 50*time.Millisecond, 10*time.Millisecond)
 	if err == nil {
 		t.Fatal("expected timeout error")
@@ -128,7 +128,7 @@ func TestWaitInstanceDeleted_PollsUntil404(t *testing.T) {
 		_, _ = w.Write([]byte(`{"detail":"not found"}`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	if err := c.WaitInstanceDeleted(context.Background(), "i1", 1*time.Second, 1*time.Millisecond); err != nil {
 		t.Fatalf("expected nil, got %v", err)
 	}
@@ -146,7 +146,7 @@ func TestStartInstance(t *testing.T) {
 		_, _ = w.Write([]byte(`{"detail":"Instance started"}`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	if err := c.StartInstance(context.Background(), "i1"); err != nil {
 		t.Fatalf("StartInstance error: %v", err)
 	}
@@ -161,7 +161,7 @@ func TestStopInstance(t *testing.T) {
 		_, _ = w.Write([]byte(`{"detail":"Instance is stopping"}`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	if err := c.StopInstance(context.Background(), "i1"); err != nil {
 		t.Fatalf("StopInstance error: %v", err)
 	}
@@ -176,7 +176,7 @@ func TestRebootInstance(t *testing.T) {
 		_, _ = w.Write([]byte(`{"detail":"reboot server is in progress, please wait a moment"}`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	if err := c.RebootInstance(context.Background(), "i1"); err != nil {
 		t.Fatalf("RebootInstance error: %v", err)
 	}
@@ -191,7 +191,7 @@ func TestRenameInstance(t *testing.T) {
 		_, _ = w.Write([]byte(`{"detail":"The server has been rename successfully initialized. Please wait a moment"}`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	if err := c.RenameInstance(context.Background(), "i1", "newname"); err != nil {
 		t.Fatalf("RenameInstance error: %v", err)
 	}
@@ -206,7 +206,7 @@ func TestChangePassword(t *testing.T) {
 		_, _ = w.Write([]byte(`{"detail":"Change instance password successfully"}`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	if err := c.ChangePassword(context.Background(), "i1", "newpw"); err != nil {
 		t.Fatalf("ChangePassword error: %v", err)
 	}
@@ -221,7 +221,7 @@ func TestUpdateReverseDNS(t *testing.T) {
 		_, _ = w.Write([]byte(`{"detail":"Successfully updated reverse dns"}`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	if err := c.UpdateReverseDNS(context.Background(), "i1", "host.example.com", "1.2.3.4"); err != nil {
 		t.Fatalf("UpdateReverseDNS error: %v", err)
 	}
@@ -236,7 +236,7 @@ func TestAddSecurityGroup(t *testing.T) {
 		_, _ = w.Write([]byte(`{"detail":"Successfully added security group to server"}`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	if err := c.AddSecurityGroup(context.Background(), "i1", "sg-abc123"); err != nil {
 		t.Fatalf("AddSecurityGroup error: %v", err)
 	}
@@ -251,7 +251,7 @@ func TestRemoveSecurityGroup(t *testing.T) {
 		_, _ = w.Write([]byte(`{"detail":"Successfully removed security group from server"}`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	if err := c.RemoveSecurityGroup(context.Background(), "i1", "sg-abc123"); err != nil {
 		t.Fatalf("RemoveSecurityGroup error: %v", err)
 	}
@@ -266,7 +266,7 @@ func TestListSecurityGroups(t *testing.T) {
 		_, _ = w.Write([]byte(`[{"id":"sg-1","name":"default"},{"id":"sg-2","name":"web"}]`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	sgs, err := c.ListSecurityGroups(context.Background(), "i1")
 	if err != nil {
 		t.Fatalf("ListSecurityGroups error: %v", err)
@@ -288,7 +288,7 @@ func TestWaitInstanceStopped_PollsUntilShutoff(t *testing.T) {
 		_, _ = w.Write([]byte(`{"id":"i1","status":"SHUTOFF"}`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	if err := c.WaitInstanceStopped(context.Background(), "i1", 1*time.Second, 1*time.Millisecond); err != nil {
 		t.Fatalf("expected nil, got %v", err)
 	}
@@ -302,7 +302,7 @@ func TestWaitInstanceStopped_Timeout(t *testing.T) {
 		_, _ = w.Write([]byte(`{"id":"i1","status":"ACTIVE"}`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	err := c.WaitInstanceStopped(context.Background(), "i1", 50*time.Millisecond, 10*time.Millisecond)
 	if err == nil {
 		t.Fatal("expected timeout error")
@@ -318,7 +318,7 @@ func TestCreateSnapshot(t *testing.T) {
 		_, _ = w.Write([]byte(`{"detail":"Create snapshot is in progress, please wait a moment"}`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	err := c.CreateSnapshot(context.Background(), "i1", SnapshotCreate{Name: "snap1"})
 	if err != nil {
 		t.Fatalf("CreateSnapshot error: %v", err)
@@ -331,7 +331,7 @@ func TestListSnapshots(t *testing.T) {
 		_, _ = w.Write([]byte(`[{"id":"snap-1","name":"snap1","status":"available","size":1024,"size_in_gb":"1"}]`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	snaps, err := c.ListSnapshots(context.Background(), "i1")
 	if err != nil {
 		t.Fatalf("ListSnapshots error: %v", err)
@@ -347,7 +347,7 @@ func TestGetSnapshot_Found(t *testing.T) {
 		_, _ = w.Write([]byte(`[{"id":"snap-1","name":"snap1","status":"available"}]`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	snap, err := c.GetSnapshot(context.Background(), "i1", "snap-1")
 	if err != nil {
 		t.Fatalf("GetSnapshot error: %v", err)
@@ -363,7 +363,7 @@ func TestGetSnapshot_NotFound(t *testing.T) {
 		_, _ = w.Write([]byte(`[]`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	_, err := c.GetSnapshot(context.Background(), "i1", "missing")
 	if err == nil {
 		t.Fatal("expected error for missing snapshot")
@@ -379,7 +379,7 @@ func TestGetMetrics(t *testing.T) {
 		_, _ = w.Write([]byte(`{"data":[{"timestamp":"2026-01-01","value":42.5}]}`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	resp, err := c.GetMetrics(context.Background(), "i1", "vcpu", "1h")
 	if err != nil {
 		t.Fatalf("GetMetrics error: %v", err)
@@ -399,7 +399,7 @@ func TestGetUsageHistory(t *testing.T) {
 		_, _ = w.Write([]byte(`[{"date":"2026-01-01","usage_mb":500}]`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	items, err := c.GetUsageHistory(context.Background(), "i1")
 	if err != nil {
 		t.Fatalf("GetUsageHistory error: %v", err)
@@ -415,7 +415,7 @@ func TestGetUsageSummary(t *testing.T) {
 		_, _ = w.Write([]byte(`{"csv_path":"https://example.com/summary.csv"}`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	resp, err := c.GetUsageSummary(context.Background())
 	if err != nil {
 		t.Fatalf("GetUsageSummary error: %v", err)
@@ -431,7 +431,7 @@ func TestListBackupSchedules(t *testing.T) {
 		_, _ = w.Write([]byte(`[{"id":1,"instance":"i1","rotation":7,"run_at":"2026-01-01T00:00:00Z","backup_name":"weekly","backup_type":"weekly"}]`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	schedules, err := c.ListBackupSchedules(context.Background(), "i1")
 	if err != nil {
 		t.Fatalf("ListBackupSchedules error: %v", err)
@@ -454,7 +454,7 @@ func TestEnableIPv6Range(t *testing.T) {
 		_, _ = w.Write([]byte(`{"detail":"ok"}`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	if err := c.EnableIPv6Range(context.Background(), "i1"); err != nil {
 		t.Fatalf("EnableIPv6Range error: %v", err)
 	}
@@ -469,7 +469,7 @@ func TestEnableIPv6RangeError(t *testing.T) {
 		_, _ = w.Write([]byte(`{"detail":"err"}`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	if err := c.EnableIPv6Range(context.Background(), "i1"); err == nil {
 		t.Fatal("expected error from 500, got nil")
 	}
@@ -484,7 +484,7 @@ func TestListInterfaces(t *testing.T) {
 		_, _ = w.Write([]byte(`[{"data":[{"interface_id":"if-1","network_id":"net-1","ip_address":"10.0.0.1","is_default":true}],"network_name":"public","is_public":true}]`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	groups, err := c.ListInterfaces(context.Background(), "i1")
 	if err != nil {
 		t.Fatalf("ListInterfaces error: %v", err)
@@ -503,7 +503,7 @@ func TestListInterfacesEmpty(t *testing.T) {
 		_, _ = w.Write([]byte(`[]`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	groups, err := c.ListInterfaces(context.Background(), "i1")
 	if err != nil {
 		t.Fatalf("ListInterfaces error: %v", err)
@@ -519,7 +519,7 @@ func TestListInterfacesError(t *testing.T) {
 		_, _ = w.Write([]byte(`{"detail":"not found"}`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	_, err := c.ListInterfaces(context.Background(), "i1")
 	if err == nil {
 		t.Fatal("expected error from 404, got nil")
@@ -538,7 +538,7 @@ func TestAttachInterface(t *testing.T) {
 		_, _ = w.Write([]byte(`{"detail":"ok"}`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	if err := c.AttachInterface(context.Background(), "i1", "net-1"); err != nil {
 		t.Fatalf("AttachInterface error: %v", err)
 	}
@@ -553,7 +553,7 @@ func TestAttachInterfaceError(t *testing.T) {
 		_, _ = w.Write([]byte(`{"detail":"invalid"}`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	if err := c.AttachInterface(context.Background(), "i1", "bad"); err == nil {
 		t.Fatal("expected error from 400, got nil")
 	}
@@ -571,7 +571,7 @@ func TestDetachInterface(t *testing.T) {
 		_, _ = w.Write([]byte(`{"detail":"ok"}`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	if err := c.DetachInterface(context.Background(), "i1", "if-1"); err != nil {
 		t.Fatalf("DetachInterface error: %v", err)
 	}
@@ -586,7 +586,7 @@ func TestDetachInterfaceError(t *testing.T) {
 		_, _ = w.Write([]byte(`{"detail":"busy"}`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	if err := c.DetachInterface(context.Background(), "i1", "if-1"); err == nil {
 		t.Fatal("expected error from 409, got nil")
 	}
