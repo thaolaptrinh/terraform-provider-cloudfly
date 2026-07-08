@@ -15,7 +15,7 @@ import (
 )
 
 func TestNewClient_Defaults(t *testing.T) {
-	c, err := NewClient(context.Background(), Config{APIKey: "k"})
+	c, err := NewClient(context.Background(), Config{APIToken: "k"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -28,7 +28,7 @@ func TestNewClient_Defaults(t *testing.T) {
 }
 
 func TestNewClient_NormalizesBaseURL(t *testing.T) {
-	c, err := NewClient(context.Background(), Config{APIKey: "k", BaseURL: "https://example.com/api/"})
+	c, err := NewClient(context.Background(), Config{APIToken: "k", BaseURL: "https://example.com/api/"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -37,9 +37,9 @@ func TestNewClient_NormalizesBaseURL(t *testing.T) {
 	}
 }
 
-func TestNewClient_MissingAPIKey(t *testing.T) {
+func TestNewClient_MissingAPIToken(t *testing.T) {
 	if _, err := NewClient(context.Background(), Config{}); err == nil {
-		t.Fatal("expected error when APIKey empty, got nil")
+		t.Fatal("expected error when APIToken empty, got nil")
 	}
 }
 
@@ -53,7 +53,7 @@ func TestDo_SetsAuthAndAcceptHeaders(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	c, _ := NewClient(context.Background(), Config{APIKey: "secret", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "secret", BaseURL: srv.URL})
 	_, _ = c.Do(context.Background(), http.MethodGet, "/ping", nil, nil)
 
 	if gotAuth != "Token secret" {
@@ -75,7 +75,7 @@ func TestDo_SetsContentTypeOnBody(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	_, _ = c.Do(context.Background(), http.MethodPost, "/x", map[string]string{"a": "b"}, nil)
 
 	if gotContentType != "application/json" {
@@ -95,7 +95,7 @@ func TestDo_RetriesOn5xxThenSucceeds(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	resp, err := c.Do(context.Background(), http.MethodGet, "/x", nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

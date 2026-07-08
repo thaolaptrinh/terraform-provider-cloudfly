@@ -12,7 +12,7 @@ import (
 // TestAccProvider verifies the provider initialises and configures its client
 // without error. It exercises the acceptance-test harness
 // (testAccProtoV6ProviderFactories + testAccPreCheck) and is skipped unless
-// CLOUDFLY_API_KEY is set.
+// CLOUDFLY_API_TOKEN is set.
 func TestAccProvider(t *testing.T) {
 	testAccPreCheck(t)
 

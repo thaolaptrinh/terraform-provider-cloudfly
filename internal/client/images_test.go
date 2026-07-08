@@ -20,7 +20,7 @@ func TestListImages(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	images, err := c.ListImages(context.Background())
 	if err != nil {
 		t.Fatalf("ListImages error: %v", err)
@@ -43,7 +43,7 @@ func TestListImages_Empty(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	images, err := c.ListImages(context.Background())
 	if err != nil {
 		t.Fatalf("ListImages error: %v", err)
@@ -60,7 +60,7 @@ func TestListImages_Error(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	_, err := c.ListImages(context.Background())
 	if err == nil {
 		t.Fatal("expected error from 401, got nil")

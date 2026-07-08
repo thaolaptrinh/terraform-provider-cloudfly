@@ -13,7 +13,7 @@ The CloudFly provider is used to interact with resources supported by CloudFly.
 
 ```terraform
 provider "cloudfly" {
-  # api_key  = var.cloudfly_api_key     # or set CLOUDFLY_API_KEY
+  # api_token = var.cloudfly_api_token   # or set CLOUDFLY_API_TOKEN
   # base_url = "https://api.cloudfly.vn/backend/api"
 }
 ```
@@ -23,5 +23,5 @@ provider "cloudfly" {
 
 ### Optional
 
-- `api_key` (String, Sensitive) CloudFly API key. May also be set via the `CLOUDFLY_API_KEY` environment variable.
+- `api_token` (String, Sensitive) CloudFly API access token. May also be set via the `CLOUDFLY_API_TOKEN` environment variable.
 - `base_url` (String) CloudFly API base URL. May also be set via the `CLOUDFLY_BASE_URL` environment variable. Defaults to `https://api.cloudfly.vn/backend/api`.

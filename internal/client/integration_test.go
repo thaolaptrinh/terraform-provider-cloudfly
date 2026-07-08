@@ -11,13 +11,13 @@ import (
 )
 
 // TestIntegration_CloudRegions verifies the client authenticates against the live
-// CloudFly API. Skipped unless CLOUDFLY_API_KEY is set — never runs in default CI.
+// CloudFly API. Skipped unless CLOUDFLY_API_TOKEN is set — never runs in default CI.
 func TestIntegration_CloudRegions(t *testing.T) {
-	key := os.Getenv("CLOUDFLY_API_KEY")
+	key := os.Getenv("CLOUDFLY_API_TOKEN")
 	if key == "" {
-		t.Skip("CLOUDFLY_API_KEY not set")
+		t.Skip("CLOUDFLY_API_TOKEN not set")
 	}
-	c, err := NewClient(context.Background(), Config{APIKey: key})
+	c, err := NewClient(context.Background(), Config{APIToken: key})
 	if err != nil {
 		t.Fatalf("NewClient error: %v", err)
 	}

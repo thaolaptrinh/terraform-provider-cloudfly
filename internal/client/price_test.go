@@ -25,7 +25,7 @@ func TestGetPrice(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	price, err := c.GetPrice(context.Background(), PriceRequest{
 		FlavorType: "Standard",
 		RAM:        1,
@@ -48,7 +48,7 @@ func TestGetPrice_HTTPError(t *testing.T) {
 		_, _ = w.Write([]byte(`{"detail":"Invalid Token."}`))
 	}))
 	t.Cleanup(srv.Close)
-	c, _ := NewClient(context.Background(), Config{APIKey: "k", BaseURL: srv.URL})
+	c, _ := NewClient(context.Background(), Config{APIToken: "k", BaseURL: srv.URL})
 	if _, err := c.GetPrice(context.Background(), PriceRequest{FlavorType: "Standard", RAM: 1, Disk: 20, VCPUs: 1, Region: "HN-Cloud01", ImageName: "CentOS-7.9"}); err == nil {
 		t.Fatal("expected error on 401")
 	}

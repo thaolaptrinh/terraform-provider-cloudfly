@@ -11,7 +11,7 @@ import (
 )
 
 // Acceptance tests for the four Phase 2 data sources. Read-only against the
-// live API; require only CLOUDFLY_API_KEY (no resource creation).
+// live API; require only CLOUDFLY_API_TOKEN (no resource creation).
 
 func TestAccRegionsDataSource(t *testing.T) {
 	testAccPreCheck(t)
